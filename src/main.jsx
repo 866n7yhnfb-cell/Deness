@@ -6,44 +6,43 @@ const ROOM = "denessa-lounge";
 
 const chats = [
   {
-    id: "lounge",
+    id: "denessa-lounge",
     title: "Denessa Lounge",
     subtitle: "Общий канал",
     icon: "⚓",
     type: "ocean",
-    online: true,
-    active: true,
   },
   {
     id: "captains",
     title: "Капитаны",
     subtitle: "Команда Denessa",
     icon: "✦",
-    type: "captains",
+    type: "blue",
   },
   {
     id: "ideas",
     title: "Морские идеи",
     subtitle: "Обсуждения",
-    icon: "◓",
-    type: "ideas",
+    icon: "◯",
+    type: "gold",
   },
 ];
 
 function Denessa() {
-  const [screen, setScreen] = useState("home");
-  const [search, setSearch] = useState("");
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [connected, setConnected] = useState(false);
+  const [activeChat, setActiveChat] = useState("denessa-lounge");
 
   const socketRef = useRef(null);
   const reconnectRef = useRef(null);
   const bottomRef = useRef(null);
 
-  // --------------------------------------------------
+  const activeRoom = chats.find((chat) => chat.id === activeChat);
+
+  // --------------------------------------------
   // WEBSOCKET
-  // --------------------------------------------------
+  // --------------------------------------------
 
   const connect = () => {
     try {
@@ -85,11 +84,7 @@ function Denessa() {
         try {
           const data = JSON.parse(event.data);
 
-          let message = data;
-
-          if (data && data.message) {
-            message = data.message;
-          }
+          let message = data?.message || data;
 
           if (typeof message === "string") {
             message = {
@@ -107,7 +102,9 @@ function Denessa() {
           if (!message || typeof message !== "object") return;
 
           const normalized = {
-            id: message.id || Date.now() + Math.random(),
+            id:
+              message.id ||
+              Date.now() + Math.random(),
 
             text:
               message.text ||
@@ -155,7 +152,7 @@ function Denessa() {
         }
       };
     } catch (error) {
-      console.log("Connection error:", error);
+      console.log("Denessa connection error:", error);
       setConnected(false);
     }
   };
@@ -172,15 +169,19 @@ function Denessa() {
     };
   }, []);
 
+  // --------------------------------------------
+  // SCROLL
+  // --------------------------------------------
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
       behavior: "smooth",
     });
   }, [messages]);
 
-  // --------------------------------------------------
+  // --------------------------------------------
   // SEND
-  // --------------------------------------------------
+  // --------------------------------------------
 
   const sendMessage = () => {
     const value = text.trim();
@@ -204,10 +205,7 @@ function Denessa() {
     try {
       const socket = socketRef.current;
 
-      if (
-        socket &&
-        socket.readyState === WebSocket.OPEN
-      ) {
+      if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(
           JSON.stringify({
             type: "message",
@@ -234,258 +232,34 @@ function Denessa() {
     }
   };
 
-  // --------------------------------------------------
-  // FILTER
-  // --------------------------------------------------
-
-  const filteredChats = chats.filter((chat) =>
-    `${chat.title} ${chat.subtitle}`
-      .toLowerCase()
-      .includes(search.toLowerCase())
-  );
-
-  // --------------------------------------------------
-  // CHAT SCREEN
-  // --------------------------------------------------
-
-  if (screen === "chat") {
-    return (
-      <div className="app-shell">
-
-        <header className="top-header chat-top">
-
-          <button
-            className="icon-button"
-            onClick={() => setScreen("home")}
-            aria-label="Назад"
-          >
-            ‹
-          </button>
-
-          <div className="brand-block">
-
-            <div className="brand-avatar">
-              D
-            </div>
-
-            <div className="brand-text">
-              <div className="brand-title">
-                Denessa
-              </div>
-
-              <div className="brand-subtitle">
-                Морской мессенджер
-              </div>
-            </div>
-
-          </div>
-
-          <div className="connection-pill">
-            <span
-              className={
-                connected
-                  ? "connection-dot connected"
-                  : "connection-dot"
-              }
-            />
-
-            <span>
-              {connected
-                ? "Онлайн"
-                : "Подключение"}
-            </span>
-          </div>
-
-          <div className="profile-avatar">
-            J
-          </div>
-
-        </header>
-
-        <section className="chat-room-header">
-
-          <div className="room-avatar ocean">
-            ⚓
-          </div>
-
-          <div className="room-info">
-
-            <div className="room-title">
-              Denessa Lounge
-            </div>
-
-            <div className="room-status">
-              <span className="tiny-online" />
-              {connected
-                ? "1 участник онлайн"
-                : "Подключение..."}
-            </div>
-
-          </div>
-
-          <div className="room-actions">
-
-            <button className="round-action">
-              ⌕
-            </button>
-
-            <button className="round-action">
-              •••
-            </button>
-
-          </div>
-
-        </section>
-
-        <main className="chat-area">
-
-          {messages.length === 0 ? (
-            <div className="chat-empty">
-
-              <div className="empty-logo">
-                ⚓
-              </div>
-
-              <div className="empty-label">
-                DENESSA LOUNGE
-              </div>
-
-              <h1>
-                Добро пожаловать
-                <br />
-                в Denessa
-              </h1>
-
-              <p>
-                Ваше пространство для общения
-                <br />
-                в океане идей.
-              </p>
-
-              <div className="private-label">
-                PRIVATE CHANNEL
-              </div>
-
-            </div>
-          ) : (
-            <div className="messages-list">
-
-              <div className="today-label">
-                Сегодня
-              </div>
-
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={
-                    message.mine
-                      ? "message-row mine"
-                      : "message-row"
-                  }
-                >
-
-                  {!message.mine && (
-                    <div className="message-avatar">
-                      ⚓
-                    </div>
-                  )}
-
-                  <div
-                    className={
-                      message.mine
-                        ? "message-bubble mine"
-                        : "message-bubble"
-                    }
-                  >
-
-                    {!message.mine && (
-                      <div className="message-author">
-                        {message.author}
-                      </div>
-                    )}
-
-                    <div className="message-content">
-                      {message.text}
-                    </div>
-
-                    <div className="message-time">
-                      {message.time}
-                      {message.mine && (
-                        <span className="checks">
-                          ✓✓
-                        </span>
-                      )}
-                    </div>
-
-                  </div>
-
-                </div>
-              ))}
-
-              <div ref={bottomRef} />
-
-            </div>
-          )}
-
-        </main>
-
-        <footer className="composer">
-
-          <button
-            className="composer-add"
-            aria-label="Добавить"
-          >
-            +
-          </button>
-
-          <textarea
-            value={text}
-            onChange={(event) =>
-              setText(event.target.value)
-            }
-            onKeyDown={handleKeyDown}
-            placeholder="Напишите сообщение..."
-            rows={1}
-          />
-
-          <button
-            className="composer-send"
-            onClick={sendMessage}
-            disabled={!text.trim()}
-          >
-            ➤
-          </button>
-
-        </footer>
-
-      </div>
-    );
-  }
-
-  // --------------------------------------------------
-  // HOME SCREEN
-  // --------------------------------------------------
+  // --------------------------------------------
+  // UI
+  // --------------------------------------------
 
   return (
-    <div className="app-shell">
+    <div className="denessa">
+
+      {/* -------------------------------------- */}
+      {/* TOP HEADER */}
+      {/* -------------------------------------- */}
 
       <header className="top-header">
 
-        <button
-          className="icon-button menu"
-          aria-label="Меню"
-        >
-          ☰
+        <button className="icon-button menu-button">
+          <span className="menu-lines">
+            <i />
+            <i />
+            <i />
+          </span>
         </button>
 
-        <div className="brand-block">
+        <div className="brand">
 
           <div className="brand-avatar">
             D
           </div>
 
-          <div className="brand-text">
-
+          <div className="brand-copy">
             <div className="brand-title">
               Denessa
             </div>
@@ -493,15 +267,23 @@ function Denessa() {
             <div className="brand-subtitle">
               Морской мессенджер
             </div>
-
           </div>
 
         </div>
 
         <div className="header-spacer" />
 
-        <div className="online-indicator">
-          <span className="online-light" />
+        <div
+          className={
+            connected
+              ? "connection online"
+              : "connection"
+          }
+        >
+          <span className="connection-dot" />
+          <span>
+            {connected ? "Онлайн" : "Подключение"}
+          </span>
         </div>
 
         <div className="profile-avatar">
@@ -510,113 +292,305 @@ function Denessa() {
 
       </header>
 
-      <main className="home-content">
+      {/* -------------------------------------- */}
+      {/* MAIN */}
+      {/* -------------------------------------- */}
 
-        <div className="section-heading">
+      <main className="main-layout">
 
-          <div>
-            <div className="eyebrow">
-              ВАШИ ЧАТЫ
+        {/* ------------------------------------ */}
+        {/* CHAT LIST */}
+        {/* ------------------------------------ */}
+
+        <aside className="chat-sidebar">
+
+          <div className="sidebar-heading">
+
+            <div>
+              <div className="eyebrow">
+                ВАШИ ЧАТЫ
+              </div>
+
+              <h1>
+                Причал
+              </h1>
             </div>
 
-            <h1>
-              Причал
-            </h1>
+            <button className="add-chat">
+              +
+            </button>
+
           </div>
 
-          <button className="new-chat-button">
-            +
-          </button>
+          <div className="search-box">
 
-        </div>
+            <span className="search-icon">
+              ⌕
+            </span>
 
-        <div className="search-box">
+            <input
+              placeholder="Поиск по чатам"
+            />
 
-          <span className="search-icon">
-            ⌕
-          </span>
+          </div>
 
-          <input
-            value={search}
-            onChange={(event) =>
-              setSearch(event.target.value)
-            }
-            placeholder="Поиск по чатам"
-          />
+          <div className="chat-list">
 
-        </div>
-
-        <div className="chat-list">
-
-          {filteredChats.map((chat) => (
-            <button
-              key={chat.id}
-              className={
-                chat.active
-                  ? "chat-card active"
-                  : "chat-card"
-              }
-              onClick={() => {
-                if (chat.id === "lounge") {
-                  setScreen("chat");
+            {chats.map((chat) => (
+              <button
+                key={chat.id}
+                onClick={() =>
+                  setActiveChat(chat.id)
                 }
-              }}
-            >
-
-              <div
                 className={
-                  `chat-card-avatar ${chat.type}`
+                  activeChat === chat.id
+                    ? "chat-item active"
+                    : "chat-item"
                 }
               >
-                {chat.icon}
+
+                <div
+                  className={`chat-avatar ${chat.type}`}
+                >
+                  {chat.icon}
+                </div>
+
+                <div className="chat-info">
+
+                  <div className="chat-name">
+                    {chat.title}
+                  </div>
+
+                  <div className="chat-description">
+                    {chat.subtitle}
+                  </div>
+
+                </div>
+
+                {activeChat === chat.id && (
+                  <span className="chat-active-dot" />
+                )}
+
+              </button>
+            ))}
+
+          </div>
+
+          <div className="sidebar-bottom">
+
+            <div className="version-card">
+
+              <div className="version-icon">
+                ⚓
               </div>
 
-              <div className="chat-card-info">
+              <div>
+                <strong>
+                  Denessa 1.1
+                </strong>
 
-                <div className="chat-card-title">
-                  {chat.title}
-                </div>
-
-                <div className="chat-card-subtitle">
-                  {chat.subtitle}
-                </div>
-
+                <span>
+                  Плывём в онлайн
+                </span>
               </div>
 
-              {chat.active && (
-                <div className="chat-card-time">
-                  сейчас
-                </div>
-              )}
+            </div>
 
+          </div>
+
+        </aside>
+
+        {/* ------------------------------------ */}
+        {/* CHAT */}
+        {/* ------------------------------------ */}
+
+        <section className="chat-panel">
+
+          <header className="chat-topbar">
+
+            <button
+              className="chat-back"
+              onClick={() =>
+                window.history.back()
+              }
+            >
+              ‹
             </button>
-          ))}
 
-        </div>
-
-        <div className="version-card">
-
-          <div className="version-icon">
-            ⚓
-          </div>
-
-          <div>
-
-            <div className="version-title">
-              Denessa 1.1
+            <div className="chat-avatar large ocean">
+              ⚓
             </div>
 
-            <div className="version-subtitle">
-              Плывём в онлайн
+            <div className="chat-heading">
+
+              <div className="chat-heading-title">
+                {activeRoom?.title || "Denessa Lounge"}
+              </div>
+
+              <div className="chat-heading-status">
+
+                <span />
+
+                {connected
+                  ? "1 участник онлайн"
+                  : "Подключение..."}
+
+              </div>
+
             </div>
 
+            <div className="chat-actions">
+
+              <button className="chat-action">
+                ⌕
+              </button>
+
+              <button className="chat-action">
+                •••
+              </button>
+
+            </div>
+
+          </header>
+
+          {/* ---------------------------------- */}
+          {/* MESSAGES */}
+          {/* ---------------------------------- */}
+
+          <div className="messages">
+
+            <div className="today">
+              Сегодня
+            </div>
+
+            {messages.length === 0 && (
+              <div className="empty-chat">
+
+                <div className="empty-orb">
+
+                  <div className="empty-anchor">
+                    ⚓
+                  </div>
+
+                </div>
+
+                <div className="empty-label">
+                  DENESSA LOUNGE
+                </div>
+
+                <h2>
+                  Добро пожаловать
+                  <br />
+                  в Denessa
+                </h2>
+
+                <p>
+                  Ваше пространство для общения
+                  <br />
+                  в океане идей.
+                </p>
+
+                <span className="private-channel">
+                  PRIVATE CHANNEL
+                </span>
+
+              </div>
+            )}
+
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={
+                  message.mine
+                    ? "message-row mine"
+                    : "message-row"
+                }
+              >
+
+                {!message.mine && (
+                  <div className="message-mini-avatar">
+                    ⚓
+                  </div>
+                )}
+
+                <div
+                  className={
+                    message.mine
+                      ? "bubble mine-bubble"
+                      : "bubble"
+                  }
+                >
+
+                  {!message.mine && (
+                    <div className="message-author">
+                      {message.author}
+                    </div>
+                  )}
+
+                  <div className="message-content">
+                    {message.text}
+                  </div>
+
+                  <div className="message-meta">
+                    <span>
+                      {message.time}
+                    </span>
+
+                    {message.mine && (
+                      <span className="checks">
+                        ✓✓
+                      </span>
+                    )}
+                  </div>
+
+                </div>
+
+              </div>
+            ))}
+
+            <div ref={bottomRef} />
+
           </div>
 
-          <div className="version-arrow">
-            ›
-          </div>
+          {/* ---------------------------------- */}
+          {/* COMPOSER */}
+          {/* ---------------------------------- */}
 
-        </div>
+          <footer className="composer">
+
+            <button className="composer-add">
+              +
+            </button>
+
+            <div className="composer-field">
+
+              <textarea
+                value={text}
+                onChange={(event) =>
+                  setText(event.target.value)
+                }
+                onKeyDown={handleKeyDown}
+                placeholder="Напишите сообщение..."
+                rows={1}
+              />
+
+            </div>
+
+            <button
+              className={
+                text.trim()
+                  ? "composer-send ready"
+                  : "composer-send"
+              }
+              onClick={sendMessage}
+              disabled={!text.trim()}
+            >
+              ➤
+            </button>
+
+          </footer>
+
+        </section>
 
       </main>
 
@@ -624,9 +598,9 @@ function Denessa() {
   );
 }
 
-// --------------------------------------------------
+// ----------------------------------------------
 // ERROR BOUNDARY
-// --------------------------------------------------
+// ----------------------------------------------
 
 class DenessaErrorBoundary extends React.Component {
   constructor(props) {
@@ -644,7 +618,10 @@ class DenessaErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error) {
-    console.error("Denessa crashed:", error);
+    console.error(
+      "Denessa crashed:",
+      error
+    );
   }
 
   render() {
@@ -669,7 +646,7 @@ class DenessaErrorBoundary extends React.Component {
               window.location.reload()
             }
           >
-            Перезагрузить
+            Перезагрузить Denessa
           </button>
 
         </div>
