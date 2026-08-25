@@ -4,15 +4,32 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // WebSocket endpoint
     if (url.pathname === "/ws") {
-      if (request.method !== "GET" || request.headers.get("Upgrade") !== "websocket") {
+      if (
+        request.method !== "GET" ||
+        request.headers.get("Upgrade")?.toLowerCase() !== "websocket"
+      ) {
         return new Response("WebSocket required", { status: 426 });
       }
 
-      const room = (url.searchParams.get("room") || "denessa-main").slice(0, 80);
+      const room =
+        (url.searchParams.get("room") || "denessa-main").slice(0, 80);
+
       const id = env.DENESSA_CHAT.idFromName(room);
-      const stub = env.DENESSA_CHAT.get(id);
-      return stub.fetch(request);
+      const chat = env.DENESSA_CHAT.get(id);
+
+      return chat.fetch(request);
+    }
+
+    // Проверка сервера
+    if (url.pathname === "/api/health") {
+      return Response.json({
+        ok: true,
+        app: "Denessa",
+        version: "1.3",
+        status: "online"
+      });
     }
 
     return env.ASSETS.fetch(request);
@@ -20,99 +37,124 @@ export default {
 };
 
 export class DenessaChat extends DurableObject {
-  sessions = new Map();
-
   constructor(ctx, env) {
     super(ctx, env);
-
-    this.ctx.getWebSockets().forEach((ws) => {
-      const attachment = ws.deserializeAttachment();
-      if (attachment) this.sessions.set(ws, attachment);
-    });
-
-    this.ctx.setWebSocketAutoResponse(
-      new WebSocketRequestResponsePair("ping", "pong")
-    );
+    this.sessions = new Map();
   }
 
   async fetch(request) {
     const url = new URL(request.url);
-    const name = (url.searchParams.get("name") || "Моряк").slice(0, 24);
 
-    const pair = new WebSocketPair();
-    const [client, server] = Object.values(pair);
-
-    this.ctx.acceptWebSocket(server);
-
-    const session = {
-      id: crypto.randomUUID(),
-      name
-    };
-
-    server.serializeAttachment(session);
-    this.sessions.set(server, session);
-
-    const messages = (await this.ctx.storage.get("messages")) || [];
-    server.send(JSON.stringify({
-      type: "history",
-      messages: messages.slice(-100),
-      online: this.sessions.size
-    }));
-
-    this.broadcast({ type: "presence", online: this.sessions.size });
-
-    return new Response(null, { status: 101, webSocket: client });
-  }
-
-  async webSocketMessage(ws, raw) {
-    const session = this.sessions.get(ws);
-    if (!session) return;
-
-    let data;
-    try { data = JSON.parse(raw); } catch { return; }
-
-    if (data.type === "hello" && typeof data.name === "string") {
-      session.name = data.name.slice(0, 24);
-      ws.serializeAttachment(session);
-      this.sessions.set(ws, session);
-      this.broadcast({ type: "presence", online: this.sessions.size });
-      return;
+    if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
+      return new Response("WebSocket required", { status: 426 });
     }
 
-    if (data.type !== "message") return;
+    const pair = new WebSocketPair();
+    const client = pair[0];
+    const server = pair[1];
 
-    const text = String(data.text || "").trim().slice(0, 2000);
-    if (!text) return;
+    const user =
+      (url.searchParams.get("user") || "Гость").slice(0, 40);
 
-    const message = {
-      id: crypto.randomUUID(),
-      name: session.name,
-      text,
-      time: new Date().toISOString()
-    };
+    const sessionId =
+      crypto.randomUUID();
 
-    const messages = (await this.ctx.storage.get("messages")) || [];
-    messages.push(message);
-    const trimmed = messages.slice(-100);
-    await this.ctx.storage.put("messages", trimmed);
+    server.accept();
 
-    this.broadcast({ type: "message", message });
+    this.sessions.set(sessionId, {
+      ws: server,
+      user
+    });
+
+    server.send(
+      JSON.stringify({
+        type: "welcome",
+        version: "1.3",
+        user,
+        online: this.sessions.size
+      })
+    );
+
+    this.broadcast({
+      type: "system",
+      text: `${user} вошёл в Denessa`,
+      online: this.sessions.size
+    }, sessionId);
+
+    server.addEventListener("message", async event => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "message") {
+          const text = String(data.text || "").trim();
+
+          if (!text) return;
+
+          const message = {
+            type: "message",
+            id: crypto.randomUUID(),
+            user,
+            text: text.slice(0, 2000),
+            time: Date.now()
+          };
+
+          await this.ctx.storage.put(
+            `message:${message.id}`,
+            message
+          );
+
+          this.broadcast(message);
+        }
+
+        if (data.type === "typing") {
+          this.broadcast({
+            type: "typing",
+            user,
+            value: Boolean(data.value)
+          }, sessionId);
+        }
+
+      } catch {
+        server.send(
+          JSON.stringify({
+            type: "error",
+            message: "Неверный формат сообщения"
+          })
+        );
+      }
+    });
+
+    server.addEventListener("close", () => {
+      this.sessions.delete(sessionId);
+
+      this.broadcast({
+        type: "system",
+        text: `${user} вышел из Denessa`,
+        online: this.sessions.size
+      });
+    });
+
+    server.addEventListener("error", () => {
+      this.sessions.delete(sessionId);
+    });
+
+    return new Response(null, {
+      status: 101,
+      webSocket: client
+    });
   }
 
-  async webSocketClose(ws) {
-    this.sessions.delete(ws);
-    try { ws.close(); } catch {}
-    this.broadcast({ type: "presence", online: this.sessions.size });
-  }
-
-  async webSocketError(ws) {
-    this.sessions.delete(ws);
-  }
-
-  broadcast(payload) {
+  broadcast(payload, exceptId = null) {
     const message = JSON.stringify(payload);
-    for (const ws of this.sessions.keys()) {
-      try { ws.send(message); } catch {}
+
+    for (const [id, session] of this.sessions) {
+      if (id === exceptId) continue;
+
+      try {
+        session.ws.send(message);
+      } catch {
+        this.sessions.delete(id);
+      }
     }
   }
 }
