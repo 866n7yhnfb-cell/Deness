@@ -7,9 +7,9 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // ================================
+    // ==========================================
     // Главная
-    // ================================
+    // ==========================================
 
     if (url.pathname === "/") {
       return Response.json({
@@ -17,13 +17,14 @@ export default {
         version: "1.3",
         status: "online",
         room: DEFAULT_ROOM,
-        websocket: "/ws?room=denessa-lounge",
+        websocket:
+          "/ws?room=denessa-lounge&username=Участник",
       });
     }
 
-    // ================================
-    // Проверка сервера
-    // ================================
+    // ==========================================
+    // Health check
+    // ==========================================
 
     if (url.pathname === "/health") {
       return Response.json({
@@ -35,9 +36,9 @@ export default {
       });
     }
 
-    // ================================
+    // ==========================================
     // WebSocket
-    // ================================
+    // ==========================================
 
     if (
       url.pathname === "/ws" &&
@@ -57,9 +58,9 @@ export default {
       return roomObject.fetch(request);
     }
 
-    // ================================
+    // ==========================================
     // Получение сообщений
-    // ================================
+    // ==========================================
 
     if (
       url.pathname === "/api/messages" &&
@@ -78,9 +79,7 @@ export default {
       return roomObject.fetch(
         new Request(
           new URL(
-            `/messages?room=${encodeURIComponent(
-              room
-            )}`,
+            `/messages?room=${encodeURIComponent(room)}`,
             request.url
           ),
           request
@@ -88,9 +87,9 @@ export default {
       );
     }
 
-    // ================================
+    // ==========================================
     // Информация о комнате
-    // ================================
+    // ==========================================
 
     if (
       url.pathname === "/api/room" &&
@@ -109,9 +108,7 @@ export default {
       return roomObject.fetch(
         new Request(
           new URL(
-            `/room?room=${encodeURIComponent(
-              room
-            )}`,
+            `/room?room=${encodeURIComponent(room)}`,
             request.url
           ),
           request
@@ -132,6 +129,7 @@ export default {
   },
 };
 
+
 // ======================================================
 // DENESSA ROOM
 // ======================================================
@@ -150,9 +148,9 @@ export class DenessaRoom extends DurableObject {
     );
   }
 
-  // ====================================================
+  // ======================================================
   // DATABASE
-  // ====================================================
+  // ======================================================
 
   async initialize() {
     this.ctx.storage.sql.exec(`
@@ -167,9 +165,9 @@ export class DenessaRoom extends DurableObject {
     `);
   }
 
-  // ====================================================
+  // ======================================================
   // FETCH
-  // ====================================================
+  // ======================================================
 
   async fetch(request) {
     const url = new URL(request.url);
@@ -182,7 +180,7 @@ export class DenessaRoom extends DurableObject {
       return this.handleWebSocket(request);
     }
 
-    // Messages API
+    // История сообщений
     if (
       url.pathname === "/messages" &&
       request.method === "GET"
@@ -190,7 +188,7 @@ export class DenessaRoom extends DurableObject {
       return this.getMessages();
     }
 
-    // Room API
+    // Информация о комнате
     if (
       url.pathname === "/room" &&
       request.method === "GET"
@@ -206,22 +204,17 @@ export class DenessaRoom extends DurableObject {
     );
   }
 
-  // ====================================================
-  // WEBSOCKET CONNECTION
-  // ====================================================
+  // ======================================================
+  // WEBSOCKET
+  // ======================================================
 
   async handleWebSocket(request) {
-    const pair =
-      new WebSocketPair();
+    const pair = new WebSocketPair();
 
-    const client =
-      pair[0];
+    const client = pair[0];
+    const server = pair[1];
 
-    const server =
-      pair[1];
-
-    const url =
-      new URL(request.url);
+    const url = new URL(request.url);
 
     const username =
       url.searchParams.get("username") ||
@@ -229,7 +222,7 @@ export class DenessaRoom extends DurableObject {
 
     const clientId =
       url.searchParams.get("client") ||
-      `${Date.now()}-${crypto.randomUUID()}`;
+      crypto.randomUUID();
 
     this.ctx.acceptWebSocket(server);
 
@@ -239,9 +232,9 @@ export class DenessaRoom extends DurableObject {
       connectedAt: Date.now(),
     });
 
-    // --------------------------------
-    // Отправляем историю
-    // --------------------------------
+    // ------------------------------------------
+    // Отправляем историю новому пользователю
+    // ------------------------------------------
 
     const messages =
       await this.loadMessages();
@@ -254,109 +247,131 @@ export class DenessaRoom extends DurableObject {
       })
     );
 
-    // --------------------------------
-    // Сообщаем количество пользователей
-    // --------------------------------
+    // ------------------------------------------
+    // Обновляем онлайн
+    // ------------------------------------------
 
     this.broadcastPresence();
 
-    return new Response(
-      null,
-      {
-        status: 101,
-        webSocket: client,
-      }
-    );
+    return new Response(null, {
+      status: 101,
+      webSocket: client,
+    });
   }
 
-  // ====================================================
-  // MESSAGE
-  // ====================================================
+  // ======================================================
+  // НОВОЕ СООБЩЕНИЕ
+  // ======================================================
 
-  async webSocketMessage(
-    ws,
-    rawMessage
-  ) {
+  async webSocketMessage(ws, rawMessage) {
     try {
-      const data =
-        typeof rawMessage === "string"
-          ? JSON.parse(rawMessage)
-          : rawMessage;
+      let data;
+
+      if (typeof rawMessage === "string") {
+        data = JSON.parse(rawMessage);
+      } else {
+        data = rawMessage;
+      }
 
       if (!data) {
         return;
       }
 
-      if (
-        data.type !== "message"
-      ) {
-        return;
-      }
+      // ------------------------------------------
+      // Сообщение
+      // ------------------------------------------
 
-      const text =
-        String(
+      if (data.type === "message") {
+        const text = String(
           data.text ||
             data.content ||
             ""
         ).trim();
 
-      if (!text) {
+        if (!text) {
+          return;
+        }
+
+        const attachment =
+          ws.deserializeAttachment() || {};
+
+        const author =
+          String(
+            data.author ||
+              attachment.username ||
+              "Участник"
+          );
+
+        const clientId =
+          String(
+            data.clientId ||
+              attachment.clientId ||
+              ""
+          );
+
+        const now = new Date();
+
+        const time =
+          data.time ||
+          now.toLocaleTimeString(
+            "ru-RU",
+            {
+              hour: "2-digit",
+              minute: "2-digit",
+            }
+          );
+
+        const message = {
+          id:
+            data.id ||
+            `${Date.now()}-${crypto.randomUUID()}`,
+
+          clientId,
+
+          author,
+
+          text,
+
+          time,
+
+          mine: false,
+        };
+
+        // ----------------------------------------
+        // Сохраняем в Durable Object SQLite
+        // ----------------------------------------
+
+        await this.saveMessage(message);
+
+        // ----------------------------------------
+        // Отправляем ВСЕМ пользователям
+        // ----------------------------------------
+
+        this.broadcast({
+          type: "message",
+          message,
+        });
+
         return;
       }
 
-      const attachment =
-        ws.deserializeAttachment() ||
-        {};
+      // ------------------------------------------
+      // Ping
+      // ------------------------------------------
 
-      const author =
-        data.author ||
-        attachment.username ||
-        "Участник";
-
-      const clientId =
-        data.clientId ||
-        attachment.clientId ||
-        "";
-
-      const now =
-        new Date();
-
-      const time =
-        data.time ||
-        now.toLocaleTimeString(
-          "ru-RU",
-          {
-            hour: "2-digit",
-            minute: "2-digit",
-          }
+      if (data.type === "ping") {
+        ws.send(
+          JSON.stringify({
+            type: "pong",
+            time: Date.now(),
+          })
         );
 
-      const id =
-        data.id ||
-        `${Date.now()}-${crypto.randomUUID()}`;
-
-      const message = {
-        id,
-        clientId,
-        author,
-        text,
-        time,
-        mine: false,
-      };
-
-      // Сохраняем
-      await this.saveMessage(
-        message
-      );
-
-      // Рассылаем всем
-      this.broadcast({
-        type: "message",
-        message,
-      });
+        return;
+      }
     } catch (error) {
       console.error(
-        "Denessa message error:",
+        "Denessa WebSocket message error:",
         error
       );
 
@@ -365,53 +380,43 @@ export class DenessaRoom extends DurableObject {
           JSON.stringify({
             type: "error",
             message:
-              "Не удалось отправить сообщение.",
+              "Не удалось обработать сообщение.",
           })
         );
       } catch {}
     }
   }
 
-  // ====================================================
+  // ======================================================
   // CLOSE
-  // ====================================================
+  // ======================================================
 
-  async webSocketClose(
-    ws,
-    code,
-    reason
-  ) {
-    try {
-      ws.close(
-        code,
-        reason
-      );
-    } catch {}
+  async webSocketClose(ws) {
+    console.log(
+      "Denessa user disconnected"
+    );
 
     this.broadcastPresence();
   }
 
-  // ====================================================
+  // ======================================================
   // ERROR
-  // ====================================================
+  // ======================================================
 
-  async webSocketError(
-    ws,
-    error
-  ) {
+  async webSocketError(ws, error) {
     console.error(
       "Denessa WebSocket error:",
       error
     );
+
+    this.broadcastPresence();
   }
 
-  // ====================================================
-  // SAVE
-  // ====================================================
+  // ======================================================
+  // СОХРАНЕНИЕ
+  // ======================================================
 
-  async saveMessage(
-    message
-  ) {
+  async saveMessage(message) {
     this.ctx.storage.sql.exec(
       `
       INSERT OR REPLACE INTO messages
@@ -434,6 +439,7 @@ export class DenessaRoom extends DurableObject {
     );
 
     // Оставляем последние 100 сообщений
+
     this.ctx.storage.sql.exec(
       `
       DELETE FROM messages
@@ -448,9 +454,9 @@ export class DenessaRoom extends DurableObject {
     );
   }
 
-  // ====================================================
-  // LOAD
-  // ====================================================
+  // ======================================================
+  // ЗАГРУЗКА ИСТОРИИ
+  // ======================================================
 
   async loadMessages() {
     const result =
@@ -469,24 +475,30 @@ export class DenessaRoom extends DurableObject {
         MAX_MESSAGES
       );
 
-    return Array.from(
-      result
-    ).map(
+    return Array.from(result).map(
       (row) => ({
         id: row.id,
+
         clientId:
           row.client_id || "",
-        author: row.author,
-        text: row.text,
-        time: row.time,
+
+        author:
+          row.author,
+
+        text:
+          row.text,
+
+        time:
+          row.time,
+
         mine: false,
       })
     );
   }
 
-  // ====================================================
-  // API MESSAGES
-  // ====================================================
+  // ======================================================
+  // API /messages
+  // ======================================================
 
   async getMessages() {
     const messages =
@@ -494,35 +506,38 @@ export class DenessaRoom extends DurableObject {
 
     return Response.json({
       ok: true,
+      room: DEFAULT_ROOM,
       messages,
     });
   }
 
-  // ====================================================
-  // ROOM INFO
-  // ====================================================
+  // ======================================================
+  // API /room
+  // ======================================================
 
   async getRoomInfo() {
-    const online =
-      this.ctx
-        .getWebSockets()
-        .length;
+    const sockets =
+      this.ctx.getWebSockets();
 
     const messages =
       await this.loadMessages();
 
     return Response.json({
       ok: true,
+
       room: DEFAULT_ROOM,
-      online,
+
+      online:
+        sockets.length,
+
       messageCount:
         messages.length,
     });
   }
 
-  // ====================================================
-  // PRESENCE
-  // ====================================================
+  // ======================================================
+  // ONLINE
+  // ======================================================
 
   broadcastPresence() {
     const online =
@@ -536,26 +551,19 @@ export class DenessaRoom extends DurableObject {
     });
   }
 
-  // ====================================================
+  // ======================================================
   // BROADCAST
-  // ====================================================
+  // ======================================================
 
-  broadcast(
-    data,
-    except = null
-  ) {
+  broadcast(data, except = null) {
     const encoded =
       JSON.stringify(data);
 
     const sockets =
       this.ctx.getWebSockets();
 
-    for (
-      const socket of sockets
-    ) {
-      if (
-        socket === except
-      ) {
+    for (const socket of sockets) {
+      if (socket === except) {
         continue;
       }
 
@@ -564,9 +572,7 @@ export class DenessaRoom extends DurableObject {
           socket.readyState ===
           WebSocket.OPEN
         ) {
-          socket.send(
-            encoded
-          );
+          socket.send(encoded);
         }
       } catch (error) {
         console.error(
