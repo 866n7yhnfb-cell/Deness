@@ -1,653 +1,1022 @@
-import React, { useEffect, useRef, useState } from "react";
-import { createRoot } from "react-dom/client";
-import "./style.css";
-
-const ROOM = "denessa-lounge";
-
-function Denessa() {
-  const [messages, setMessages] = useState([]);
-  const [text, setText] = useState("");
-  const [connected, setConnected] = useState(false);
-  const [sending, setSending] = useState(false);
-
-  const socketRef = useRef(null);
-  const reconnectRef = useRef(null);
-  const bottomRef = useRef(null);
-
-  // ==================================================
-  // WEBSOCKET
-  // ==================================================
-
-  const connect = () => {
-    try {
-      if (socketRef.current) {
-        try {
-          socketRef.current.close();
-        } catch {}
-      }
-
-      const protocol =
-        window.location.protocol === "https:" ? "wss:" : "ws:";
-
-      const wsUrl =
-        `${protocol}//${window.location.host}/ws?room=${encodeURIComponent(ROOM)}`;
-
-      const socket = new WebSocket(wsUrl);
-
-      socketRef.current = socket;
-
-      socket.onopen = () => {
-        setConnected(true);
-      };
-
-      socket.onclose = () => {
-        setConnected(false);
-
-        clearTimeout(reconnectRef.current);
-
-        reconnectRef.current = setTimeout(() => {
-          connect();
-        }, 2500);
-      };
-
-      socket.onerror = () => {
-        setConnected(false);
-      };
-
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          let message = data;
-
-          if (data && data.message) {
-            message = data.message;
-          }
-
-          if (typeof message === "string") {
-            message = {
-              id: Date.now() + Math.random(),
-              text: message,
-              author: "Участник",
-              mine: false,
-              time: new Date().toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-            };
-          }
-
-          if (!message || typeof message !== "object") {
-            return;
-          }
-
-          const normalized = {
-            id:
-              message.id ||
-              Date.now() + Math.random(),
-
-            text:
-              message.text ||
-              message.content ||
-              message.body ||
-              "",
-
-            author:
-              message.author ||
-              message.username ||
-              message.name ||
-              "Участник",
-
-            mine: Boolean(
-              message.mine ||
-              message.isMine
-            ),
-
-            time:
-              message.time ||
-              new Date().toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-          };
-
-          if (!normalized.text) return;
-
-          setMessages((old) => {
-            const exists = old.some(
-              (item) =>
-                item.id === normalized.id ||
-                (
-                  item.text === normalized.text &&
-                  item.time === normalized.time
-                )
-            );
-
-            if (exists) {
-              return old;
-            }
-
-            return [...old, normalized];
-          });
-        } catch (error) {
-          console.log(
-            "Denessa message error:",
-            error
-          );
-        }
-      };
-    } catch (error) {
-      console.log(
-        "Denessa connection error:",
-        error
-      );
-
-      setConnected(false);
-    }
-  };
-
-  // ==================================================
-  // START
-  // ==================================================
-
-  useEffect(() => {
-    connect();
-
-    return () => {
-      clearTimeout(reconnectRef.current);
-
-      try {
-        socketRef.current?.close();
-      } catch {}
-    };
-  }, []);
-
-  // ==================================================
-  // SCROLL
-  // ==================================================
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      bottomRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "end",
-      });
-    }, 60);
-
-    return () => clearTimeout(timer);
-  }, [messages]);
-
-  // ==================================================
-  // SEND MESSAGE
-  // ==================================================
-
-  const sendMessage = () => {
-    const value = text.trim();
-
-    if (!value || sending) return;
-
-    setSending(true);
-
-    const localMessage = {
-      id: `${Date.now()}-${Math.random()}`,
-      text: value,
-      author: "Вы",
-      mine: true,
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
-
-    setMessages((old) => [
-      ...old,
-      localMessage,
-    ]);
-
-    setText("");
-
-    try {
-      const socket = socketRef.current;
-
-      if (
-        socket &&
-        socket.readyState === WebSocket.OPEN
-      ) {
-        socket.send(
-          JSON.stringify({
-            type: "message",
-            room: ROOM,
-            text: value,
-            author: "Вы",
-            time: localMessage.time,
-            id: localMessage.id,
-          })
-        );
-      }
-    } catch (error) {
-      console.log(
-        "Denessa send error:",
-        error
-      );
-    }
-
-    setTimeout(() => {
-      setSending(false);
-    }, 150);
-  };
-
-  // ==================================================
-  // ENTER
-  // ==================================================
-
-  const handleKeyDown = (event) => {
-    if (
-      event.key === "Enter" &&
-      !event.shiftKey
-    ) {
-      event.preventDefault();
-      sendMessage();
-    }
-  };
-
-  // ==================================================
-  // UI
-  // ==================================================
-
-  return (
-    <div className="denessa-app">
-
-      {/* ============================================
-          TOP HEADER
-      ============================================ */}
-
-      <header className="topbar">
-
-        <div className="topbar-inner">
-
-          <button
-            className="menu-button"
-            type="button"
-            aria-label="Меню"
-          >
-            <span />
-            <span />
-            <span />
-          </button>
-
-          <div className="brand">
-
-            <div className="brand-logo">
-              D
-            </div>
-
-            <div className="brand-copy">
-
-              <div className="brand-name">
-                Denessa
-              </div>
-
-              <div className="brand-subtitle">
-                Private ocean
-              </div>
-
-            </div>
-
-          </div>
-
-          <div className="topbar-right">
-
-            <div className="online-status">
-
-              <span
-                className={
-                  connected
-                    ? "status-dot online"
-                    : "status-dot"
-                }
-              />
-
-              <span>
-                {connected
-                  ? "Онлайн"
-                  : "Подключение"}
-              </span>
-
-            </div>
-
-            <div className="profile">
-              J
-            </div>
-
-          </div>
-
-        </div>
-
-      </header>
-
-      {/* ============================================
-          CHAT HEADER
-      ============================================ */}
-
-      <section className="chat-header">
-
-        <div className="chat-header-inner">
-
-          <button
-            className="back-button"
-            type="button"
-            onClick={() =>
-              window.history.back()
-            }
-            aria-label="Назад"
-          >
-            ‹
-          </button>
-
-          <div className="chat-avatar">
-            ⚓
-          </div>
-
-          <div className="chat-info">
-
-            <div className="chat-title">
-              Denessa Lounge
-            </div>
-
-            <div className="chat-members">
-
-              <span className="small-dot" />
-
-              <span>
-                {connected
-                  ? "1 участник онлайн"
-                  : "Подключение..."}
-              </span>
-
-            </div>
-
-          </div>
-
-          <div className="chat-actions">
-
-            <button
-              className="chat-action"
-              type="button"
-              aria-label="Поиск"
-            >
-              ⌕
-            </button>
-
-            <button
-              className="chat-action"
-              type="button"
-              aria-label="Ещё"
-            >
-              •••
-            </button>
-
-          </div>
-
-        </div>
-
-      </section>
-
-      {/* ============================================
-          MESSAGES
-      ============================================ */}
-
-      <main className="messages-area">
-
-        <div className="messages-inner">
-
-          {messages.length === 0 && (
-            <div className="welcome">
-
-              <div className="welcome-icon">
-                ⚓
-              </div>
-
-              <div className="welcome-label">
-                DENESSA LOUNGE
-              </div>
-
-              <h1>
-                Добро пожаловать
-                <br />
-                в Denessa
-              </h1>
-
-              <p>
-                Ваше пространство для общения
-                <br />
-                в океане идей.
-              </p>
-
-              <div className="welcome-channel">
-                PRIVATE CHANNEL
-              </div>
-
-            </div>
-          )}
-
-          {messages.length > 0 && (
-            <div className="today-label">
-              Сегодня
-            </div>
-          )}
-
-          {messages.map((message) => (
-            <div
-              className={
-                message.mine
-                  ? "message-row mine"
-                  : "message-row"
-              }
-              key={message.id}
-            >
-
-              {!message.mine && (
-                <div className="message-avatar">
-                  ⚓
-                </div>
-              )}
-
-              <div
-                className={
-                  message.mine
-                    ? "message-bubble mine-bubble"
-                    : "message-bubble"
-                }
-              >
-
-                {!message.mine && (
-                  <div className="message-author">
-                    {message.author}
-                  </div>
-                )}
-
-                <div className="message-text">
-                  {message.text}
-                </div>
-
-                <div className="message-meta">
-
-                  <span>
-                    {message.time}
-                  </span>
-
-                  {message.mine && (
-                    <span className="checks">
-                      ✓✓
-                    </span>
-                  )}
-
-                </div>
-
-              </div>
-
-            </div>
-          ))}
-
-          <div ref={bottomRef} />
-
-        </div>
-
-      </main>
-
-      {/* ============================================
-          MESSAGE COMPOSER
-      ============================================ */}
-
-      <footer className="composer">
-
-        <div className="composer-inner">
-
-          <button
-            className="add-button"
-            type="button"
-            aria-label="Добавить"
-          >
-            +
-          </button>
-
-          <textarea
-            className="message-input"
-            value={text}
-            onChange={(event) =>
-              setText(event.target.value)
-            }
-            onKeyDown={handleKeyDown}
-            placeholder="Напишите сообщение..."
-            rows={1}
-            enterKeyHint="send"
-          />
-
-          <button
-            className="send-button"
-            type="button"
-            onClick={sendMessage}
-            disabled={
-              !text.trim() || sending
-            }
-            aria-label="Отправить"
-          >
-            ➤
-          </button>
-
-        </div>
-
-      </footer>
-
-    </div>
-  );
+/* =========================================================
+   DENESSA — PREMIUM MOBILE UI
+   Геометрия рассчитана прежде всего на iPhone
+   ========================================================= */
+
+* {
+  box-sizing: border-box;
 }
 
-// ==================================================
-// ERROR BOUNDARY
-// ==================================================
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
 
-class DenessaErrorBoundary
-  extends React.Component {
+html {
+  background: #061923;
+}
 
-  constructor(props) {
-    super(props);
-
-    this.state = {
-      hasError: false,
-    };
-  }
-
-  static getDerivedStateFromError() {
-    return {
-      hasError: true,
-    };
-  }
-
-  componentDidCatch(error) {
-    console.error(
-      "Denessa crashed:",
-      error
+body {
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 50% 45%,
+      rgba(30, 105, 135, 0.13),
+      transparent 42%
+    ),
+    linear-gradient(
+      180deg,
+      #061923 0%,
+      #071d28 48%,
+      #061923 100%
     );
+
+  color: #edf9ff;
+
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Display",
+    "SF Pro Text",
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+textarea,
+input {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+
+textarea {
+  -webkit-appearance: none;
+}
+
+
+/* =========================================================
+   APP
+   ========================================================= */
+
+.denessa-app {
+  position: relative;
+
+  width: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
+
+  display: flex;
+  flex-direction: column;
+
+  overflow: hidden;
+
+  background:
+    radial-gradient(
+      circle at 50% 50%,
+      rgba(24, 91, 116, 0.12),
+      transparent 45%
+    ),
+    #061923;
+}
+
+
+/* =========================================================
+   TOP BAR
+   ========================================================= */
+
+.topbar {
+  position: relative;
+
+  flex: 0 0 92px;
+
+  width: 100%;
+
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto 46px;
+  align-items: center;
+
+  gap: 12px;
+
+  padding:
+    max(12px, env(safe-area-inset-top))
+    18px
+    12px
+    18px;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(5, 24, 34, 0.98),
+      rgba(6, 25, 35, 0.94)
+    );
+
+  border-bottom: 1px solid rgba(91, 190, 220, 0.14);
+
+  z-index: 20;
+}
+
+
+/* =========================================================
+   MENU
+   ========================================================= */
+
+.menu-button {
+  width: 48px;
+  height: 48px;
+
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 16px;
+  border: 1px solid rgba(100, 203, 231, 0.25);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(30, 73, 89, 0.78),
+      rgba(10, 40, 53, 0.82)
+    );
+
+  color: #eafaff;
+
+  font-size: 23px;
+  line-height: 1;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 8px 22px rgba(0,0,0,0.18);
+}
+
+
+/* =========================================================
+   BRAND
+   ========================================================= */
+
+.brand {
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+
+  gap: 11px;
+
+  overflow: hidden;
+}
+
+.brand-logo {
+  flex: 0 0 54px;
+
+  width: 54px;
+  height: 54px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 17px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #69d3ed,
+      #2898bc
+    );
+
+  color: white;
+
+  font-size: 27px;
+  font-weight: 800;
+
+  box-shadow:
+    0 8px 22px rgba(29, 156, 194, 0.25),
+    inset 0 1px 0 rgba(255,255,255,0.35);
+}
+
+.brand > div:last-child {
+  min-width: 0;
+}
+
+.brand-name {
+  overflow: hidden;
+
+  white-space: nowrap;
+  text-overflow: ellipsis;
+
+  color: #f3fbff;
+
+  font-size: 23px;
+  line-height: 27px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.brand-subtitle {
+  overflow: hidden;
+
+  white-space: nowrap;
+  text-overflow: ellipsis;
+
+  margin-top: 2px;
+
+  color: #86aebe;
+
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+
+/* =========================================================
+   ONLINE
+   ========================================================= */
+
+.online-status {
+  flex: 0 0 auto;
+
+  height: 42px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 0 13px;
+
+  border-radius: 15px;
+
+  background:
+    rgba(22, 73, 84, 0.38);
+
+  border: 1px solid rgba(72, 208, 187, 0.17);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+
+  flex: 0 0 9px;
+
+  border-radius: 50%;
+
+  background: #637781;
+}
+
+.status-dot.online {
+  background: #55e4c0;
+
+  box-shadow:
+    0 0 0 5px rgba(85, 228, 192, 0.10),
+    0 0 15px rgba(85, 228, 192, 0.45);
+}
+
+.status-text {
+  color: #c6e3ed;
+
+  font-size: 14px;
+  font-weight: 700;
+
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   PROFILE
+   ========================================================= */
+
+.profile {
+  width: 42px;
+  height: 42px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 14px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #4dbbd6,
+      #238aaa
+    );
+
+  color: white;
+
+  font-size: 18px;
+  font-weight: 800;
+
+  box-shadow:
+    0 6px 18px rgba(25, 146, 181, 0.2);
+}
+
+
+/* =========================================================
+   CHAT HEADER
+   ========================================================= */
+
+.chat-header {
+  flex: 0 0 82px;
+
+  width: 100%;
+
+  display: grid;
+
+  grid-template-columns: 46px 48px minmax(0, 1fr) auto;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 10px 18px;
+
+  background:
+    rgba(6, 26, 37, 0.96);
+
+  border-bottom: 1px solid rgba(93, 190, 217, 0.12);
+
+  z-index: 15;
+}
+
+
+/* =========================================================
+   BACK BUTTON
+   ========================================================= */
+
+.back-button,
+.more-button {
+  border: 1px solid rgba(115, 211, 237, 0.20);
+
+  background:
+    rgba(19, 58, 72, 0.72);
+
+  color: #eafaff;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.back-button {
+  width: 44px;
+  height: 44px;
+
+  padding: 0;
+
+  border-radius: 14px;
+
+  font-size: 30px;
+  line-height: 1;
+}
+
+.chat-icon {
+  width: 46px;
+  height: 46px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 15px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(66, 173, 199, 0.85),
+      rgba(26, 108, 137, 0.88)
+    );
+
+  font-size: 24px;
+
+  box-shadow:
+    0 6px 20px rgba(26, 138, 169, 0.18);
+}
+
+.chat-title-area {
+  min-width: 0;
+
+  overflow: hidden;
+}
+
+.chat-title {
+  overflow: hidden;
+
+  white-space: nowrap;
+  text-overflow: ellipsis;
+
+  color: #f0faff;
+
+  font-size: 18px;
+  line-height: 23px;
+  font-weight: 750;
+
+  letter-spacing: -0.25px;
+}
+
+.chat-members {
+  display: flex;
+  align-items: center;
+
+  gap: 6px;
+
+  margin-top: 2px;
+
+  overflow: hidden;
+
+  white-space: nowrap;
+  text-overflow: ellipsis;
+
+  color: #83aab9;
+
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.small-dot {
+  width: 7px;
+  height: 7px;
+
+  flex: 0 0 7px;
+
+  border-radius: 50%;
+
+  background: #53dfbd;
+
+  box-shadow:
+    0 0 8px rgba(83,223,189,0.4);
+}
+
+.more-button {
+  width: 48px;
+  height: 44px;
+
+  padding: 0;
+
+  border-radius: 14px;
+
+  font-size: 20px;
+  letter-spacing: 2px;
+}
+
+
+/* =========================================================
+   MESSAGES
+   ========================================================= */
+
+.messages-area {
+  position: relative;
+
+  flex: 1 1 auto;
+
+  min-height: 0;
+
+  width: 100%;
+
+  overflow-x: hidden;
+  overflow-y: auto;
+
+  padding:
+    24px
+    16px
+    115px;
+
+  -webkit-overflow-scrolling: touch;
+
+  background:
+    radial-gradient(
+      circle at 50% 42%,
+      rgba(29, 111, 139, 0.10),
+      transparent 48%
+    );
+
+  scrollbar-width: none;
+}
+
+.messages-area::-webkit-scrollbar {
+  display: none;
+}
+
+
+/* =========================================================
+   WELCOME
+   ========================================================= */
+
+.welcome {
+  width: min(100%, 390px);
+
+  margin:
+    clamp(32px, 8vh, 80px)
+    auto
+    20px;
+
+  padding: 0 12px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  text-align: center;
+}
+
+.welcome-anchor {
+  width: 78px;
+  height: 78px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 22px;
+
+  border-radius: 24px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(42, 111, 132, 0.68),
+      rgba(12, 54, 69, 0.82)
+    );
+
+  border: 1px solid rgba(94, 205, 231, 0.18);
+
+  font-size: 37px;
+
+  box-shadow:
+    0 14px 35px rgba(0,0,0,0.22),
+    inset 0 1px 0 rgba(255,255,255,0.07);
+}
+
+.welcome h1 {
+  max-width: 100%;
+
+  margin: 0;
+
+  color: #f2fbff;
+
+  font-size: clamp(34px, 9vw, 48px);
+  line-height: 1.03;
+
+  font-weight: 850;
+
+  letter-spacing: -1.7px;
+}
+
+.welcome p {
+  max-width: 330px;
+
+  margin:
+    25px
+    auto
+    0;
+
+  color: #7da8b8;
+
+  font-size: 17px;
+  line-height: 1.45;
+
+  font-weight: 600;
+}
+
+
+/* =========================================================
+   MESSAGE ROWS
+   ========================================================= */
+
+.message-row {
+  width: 100%;
+
+  display: flex;
+
+  justify-content: flex-start;
+
+  margin-bottom: 10px;
+}
+
+.message-row.mine {
+  justify-content: flex-end;
+}
+
+.message-bubble {
+  width: fit-content;
+  max-width: min(78%, 330px);
+
+  padding:
+    10px
+    13px
+    8px;
+
+  border-radius: 17px 17px 17px 5px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(24, 83, 102, 0.92),
+      rgba(15, 62, 79, 0.95)
+    );
+
+  border: 1px solid rgba(91, 188, 217, 0.16);
+
+  box-shadow:
+    0 5px 18px rgba(0,0,0,0.14);
+}
+
+.message-bubble.mine-bubble {
+  border-radius: 17px 17px 5px 17px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #32a9c9,
+      #258eae
+    );
+
+  border-color: rgba(112, 221, 244, 0.25);
+
+  box-shadow:
+    0 8px 24px rgba(24, 147, 181, 0.18);
+}
+
+.message-author {
+  margin-bottom: 4px;
+
+  color: #7ddbf1;
+
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.message-text {
+  color: #f0faff;
+
+  font-size: 16px;
+  line-height: 1.35;
+
+  word-break: break-word;
+}
+
+.message-time {
+  margin-top: 5px;
+
+  text-align: right;
+
+  color: rgba(224, 247, 255, 0.55);
+
+  font-size: 11px;
+  line-height: 13px;
+}
+
+
+/* =========================================================
+   COMPOSER
+   ========================================================= */
+
+.composer {
+  position: absolute;
+
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  width: 100%;
+
+  min-height: 82px;
+
+  display: grid;
+
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+
+  align-items: center;
+
+  gap: 9px;
+
+  padding:
+    12px
+    16px
+    calc(12px + env(safe-area-inset-bottom));
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(6, 25, 36, 0.72),
+      rgba(5, 22, 32, 0.98)
+    );
+
+  border-top: 1px solid rgba(91, 190, 220, 0.14);
+
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+
+  z-index: 30;
+}
+
+
+/* =========================================================
+   ADD
+   ========================================================= */
+
+.add-button {
+  width: 48px;
+  height: 48px;
+
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 15px;
+
+  border: 1px solid rgba(94, 205, 231, 0.20);
+
+  background:
+    linear-gradient(
+      145deg,
+      #183f50,
+      #102e3d
+    );
+
+  color: #7ddcf2;
+
+  font-size: 28px;
+  font-weight: 400;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+
+/* =========================================================
+   INPUT
+   ========================================================= */
+
+.composer textarea {
+  width: 100%;
+  min-width: 0;
+
+  height: 48px;
+
+  resize: none;
+
+  overflow: hidden;
+
+  padding:
+    12px
+    15px;
+
+  border-radius: 15px;
+
+  border: 1px solid rgba(86, 189, 218, 0.14);
+
+  outline: none;
+
+  background:
+    rgba(8, 43, 57, 0.92);
+
+  color: #effaff;
+
+  font-size: 16px;
+  line-height: 24px;
+
+  font-weight: 500;
+
+  box-shadow:
+    inset 0 1px 5px rgba(0,0,0,0.16);
+}
+
+.composer textarea::placeholder {
+  color: #7798a7;
+
+  opacity: 1;
+}
+
+.composer textarea:focus {
+  border-color:
+    rgba(72, 195, 226, 0.42);
+
+  box-shadow:
+    0 0 0 3px rgba(54, 183, 215, 0.08),
+    inset 0 1px 5px rgba(0,0,0,0.16);
+}
+
+
+/* =========================================================
+   SEND
+   ========================================================= */
+
+.send-button {
+  width: 48px;
+  height: 48px;
+
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 15px;
+
+  border: 1px solid rgba(96, 208, 234, 0.18);
+
+  background:
+    linear-gradient(
+      145deg,
+      #2589a7,
+      #17667f
+    );
+
+  color: #dff8ff;
+
+  font-size: 20px;
+
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.send-button:not(:disabled):active {
+  transform: scale(0.94);
+}
+
+.send-button:disabled {
+  opacity: 0.35;
+}
+
+
+/* =========================================================
+   SMALL iPHONES
+   ========================================================= */
+
+@media (max-width: 380px) {
+
+  .topbar {
+    grid-template-columns:
+      46px
+      minmax(0, 1fr)
+      auto;
+
+    gap: 8px;
+
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div
-          style={{
-            minHeight: "100vh",
-            background: "#061923",
-            color: "#eefaff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexDirection: "column",
-            padding: "30px",
-            textAlign: "center",
-            fontFamily:
-              "-apple-system, BlinkMacSystemFont, sans-serif",
-          }}
-        >
+  .menu-button {
+    width: 44px;
+    height: 44px;
+  }
 
-          <div
-            style={{
-              fontSize: "58px",
-              marginBottom: "18px",
-            }}
-          >
-            ⚓
-          </div>
+  .brand-logo {
+    width: 48px;
+    height: 48px;
+    flex-basis: 48px;
 
-          <h1>
-            Denessa
-          </h1>
+    border-radius: 15px;
+  }
 
-          <p>
-            Произошла ошибка интерфейса.
-          </p>
+  .brand-name {
+    font-size: 20px;
+  }
 
-          <button
-            onClick={() =>
-              window.location.reload()
-            }
-            style={{
-              marginTop: "20px",
-              padding: "14px 24px",
-              borderRadius: "14px",
-              border: "none",
-              background: "#4db5d4",
-              color: "#061923",
-              fontSize: "16px",
-              fontWeight: "700",
-            }}
-          >
-            Перезагрузить Denessa
-          </button>
+  .brand-subtitle {
+    font-size: 12px;
+  }
 
-        </div>
-      );
-    }
+  .profile {
+    display: none;
+  }
 
-    return this.props.children;
+  .online-status {
+    padding: 0 9px;
+  }
+
+  .chat-header {
+    grid-template-columns:
+      42px
+      44px
+      minmax(0, 1fr)
+      44px;
+
+    gap: 7px;
+
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .back-button {
+    width: 42px;
+    height: 42px;
+  }
+
+  .chat-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .more-button {
+    width: 44px;
+  }
+
+  .welcome h1 {
+    font-size: 34px;
+  }
+
+  .welcome p {
+    font-size: 15px;
+  }
+
+  .composer {
+    grid-template-columns:
+      44px
+      minmax(0, 1fr)
+      44px;
+
+    padding-left: 11px;
+    padding-right: 11px;
+  }
+
+  .add-button,
+  .send-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .composer textarea {
+    height: 44px;
+
+    padding:
+      10px
+      12px;
+
+    font-size: 15px;
   }
 }
 
-// ==================================================
-// MOUNT
-// ==================================================
 
-const rootElement =
-  document.getElementById("root");
+/* =========================================================
+   iPHONE LANDSCAPE / VERY SHORT SCREEN
+   ========================================================= */
 
-if (!rootElement) {
-  throw new Error(
-    "Denessa: элемент #root не найден."
-  );
+@media (max-height: 650px) {
+
+  .topbar {
+    flex-basis: 72px;
+  }
+
+  .brand-logo {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+  }
+
+  .chat-header {
+    flex-basis: 68px;
+  }
+
+  .welcome {
+    margin-top: 20px;
+  }
+
+  .welcome-anchor {
+    width: 58px;
+    height: 58px;
+
+    margin-bottom: 12px;
+  }
+
+  .welcome h1 {
+    font-size: 30px;
+  }
+
+  .welcome p {
+    margin-top: 14px;
+  }
 }
 
-createRoot(rootElement).render(
-  <DenessaErrorBoundary>
-    <Denessa />
-  </DenessaErrorBoundary>
-);
+
+/* =========================================================
+   TOUCH
+   ========================================================= */
+
+@media (hover: none) {
+
+  button:active {
+    transform: scale(0.96);
+  }
+}
