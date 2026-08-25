@@ -3,28 +3,34 @@ import { DurableObject } from "cloudflare:workers";
 const DEFAULT_ROOM = "denessa-lounge";
 const MAX_MESSAGES = 100;
 
+
+// ======================================================
+// WORKER
+// ======================================================
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // ==========================================
-    // Главная
-    // ==========================================
+    // --------------------------------------------------
+    // HOME
+    // --------------------------------------------------
 
     if (url.pathname === "/") {
       return Response.json({
+        ok: true,
         name: "Denessa",
         version: "1.3",
         status: "online",
         room: DEFAULT_ROOM,
-        websocket:
-          "/ws?room=denessa-lounge&username=Участник",
+        websocket: "/ws?room=denessa-lounge",
       });
     }
 
-    // ==========================================
-    // Health check
-    // ==========================================
+
+    // --------------------------------------------------
+    // HEALTH
+    // --------------------------------------------------
 
     if (url.pathname === "/health") {
       return Response.json({
@@ -36,60 +42,10 @@ export default {
       });
     }
 
-    // ==========================================
-    // WebSocket
-    // ==========================================
 
-    if (
-      url.pathname === "/ws" &&
-      request.headers.get("Upgrade")?.toLowerCase() ===
-        "websocket"
-    ) {
-      const room =
-        url.searchParams.get("room") ||
-        DEFAULT_ROOM;
-
-      const id =
-        env.DENESSA_ROOM.idFromName(room);
-
-      const roomObject =
-        env.DENESSA_ROOM.get(id);
-
-      return roomObject.fetch(request);
-    }
-
-    // ==========================================
-    // Получение сообщений
-    // ==========================================
-
-    if (
-      url.pathname === "/api/messages" &&
-      request.method === "GET"
-    ) {
-      const room =
-        url.searchParams.get("room") ||
-        DEFAULT_ROOM;
-
-      const id =
-        env.DENESSA_ROOM.idFromName(room);
-
-      const roomObject =
-        env.DENESSA_ROOM.get(id);
-
-      return roomObject.fetch(
-        new Request(
-          new URL(
-            `/messages?room=${encodeURIComponent(room)}`,
-            request.url
-          ),
-          request
-        )
-      );
-    }
-
-    // ==========================================
-    // Информация о комнате
-    // ==========================================
+    // --------------------------------------------------
+    // DEBUG ROOM
+    // --------------------------------------------------
 
     if (
       url.pathname === "/api/room" &&
@@ -108,13 +64,92 @@ export default {
       return roomObject.fetch(
         new Request(
           new URL(
-            `/room?room=${encodeURIComponent(room)}`,
+            "/room",
             request.url
           ),
           request
         )
       );
     }
+
+
+    // --------------------------------------------------
+    // MESSAGES
+    // --------------------------------------------------
+
+    if (
+      url.pathname === "/api/messages" &&
+      request.method === "GET"
+    ) {
+      const room =
+        url.searchParams.get("room") ||
+        DEFAULT_ROOM;
+
+      const id =
+        env.DENESSA_ROOM.idFromName(room);
+
+      const roomObject =
+        env.DENESSA_ROOM.get(id);
+
+      return roomObject.fetch(
+        new Request(
+          new URL(
+            "/messages",
+            request.url
+          ),
+          request
+        )
+      );
+    }
+
+
+    // --------------------------------------------------
+    // WEBSOCKET
+    // --------------------------------------------------
+
+    if (url.pathname === "/ws") {
+
+      const upgrade =
+        request.headers
+          .get("Upgrade")
+          ?.toLowerCase();
+
+      if (upgrade !== "websocket") {
+        return new Response(
+          "Expected WebSocket",
+          {
+            status: 426,
+            headers: {
+              "content-type":
+                "text/plain; charset=utf-8",
+            },
+          }
+        );
+      }
+
+
+      const room =
+        url.searchParams.get("room") ||
+        DEFAULT_ROOM;
+
+
+      const id =
+        env.DENESSA_ROOM.idFromName(room);
+
+
+      const roomObject =
+        env.DENESSA_ROOM.get(id);
+
+
+      return roomObject.fetch(
+        request
+      );
+    }
+
+
+    // --------------------------------------------------
+    // 404
+    // --------------------------------------------------
 
     return new Response(
       "Denessa 1.3 Worker",
@@ -135,7 +170,9 @@ export default {
 // ======================================================
 
 export class DenessaRoom extends DurableObject {
+
   constructor(ctx, env) {
+
     super(ctx, env);
 
     this.ctx = ctx;
@@ -148,11 +185,13 @@ export class DenessaRoom extends DurableObject {
     );
   }
 
-  // ======================================================
+
+  // ====================================================
   // DATABASE
-  // ======================================================
+  // ====================================================
 
   async initialize() {
+
     this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS messages (
         id TEXT PRIMARY KEY,
@@ -165,22 +204,37 @@ export class DenessaRoom extends DurableObject {
     `);
   }
 
-  // ======================================================
+
+  // ====================================================
   // FETCH
-  // ======================================================
+  // ====================================================
 
   async fetch(request) {
-    const url = new URL(request.url);
 
-    // WebSocket
+    const url =
+      new URL(request.url);
+
+
+    // --------------------------------------------------
+    // WEBSOCKET
+    // --------------------------------------------------
+
     if (
-      request.headers.get("Upgrade")?.toLowerCase() ===
+      request.headers
+        .get("Upgrade")
+        ?.toLowerCase() ===
       "websocket"
     ) {
-      return this.handleWebSocket(request);
+      return this.handleWebSocket(
+        request
+      );
     }
 
-    // История сообщений
+
+    // --------------------------------------------------
+    // MESSAGES
+    // --------------------------------------------------
+
     if (
       url.pathname === "/messages" &&
       request.method === "GET"
@@ -188,13 +242,18 @@ export class DenessaRoom extends DurableObject {
       return this.getMessages();
     }
 
-    // Информация о комнате
+
+    // --------------------------------------------------
+    // ROOM
+    // --------------------------------------------------
+
     if (
       url.pathname === "/room" &&
       request.method === "GET"
     ) {
       return this.getRoomInfo();
     }
+
 
     return new Response(
       "Denessa Room",
@@ -204,40 +263,69 @@ export class DenessaRoom extends DurableObject {
     );
   }
 
-  // ======================================================
+
+  // ====================================================
   // WEBSOCKET
-  // ======================================================
+  // ====================================================
 
   async handleWebSocket(request) {
-    const pair = new WebSocketPair();
 
-    const client = pair[0];
-    const server = pair[1];
+    const pair =
+      new WebSocketPair();
 
-    const url = new URL(request.url);
+    const client =
+      pair[0];
+
+    const server =
+      pair[1];
+
+
+    const url =
+      new URL(request.url);
+
 
     const username =
-      url.searchParams.get("username") ||
+      url.searchParams.get(
+        "username"
+      ) ||
       "Участник";
 
+
     const clientId =
-      url.searchParams.get("client") ||
+      url.searchParams.get(
+        "client"
+      ) ||
       crypto.randomUUID();
 
-    this.ctx.acceptWebSocket(server);
+
+    // --------------------------------------------------
+    // ACCEPT
+    // --------------------------------------------------
+
+    this.ctx.acceptWebSocket(
+      server
+    );
+
+
+    // --------------------------------------------------
+    // ATTACH USER
+    // --------------------------------------------------
 
     server.serializeAttachment({
       username,
       clientId,
-      connectedAt: Date.now(),
+      connectedAt:
+        Date.now(),
     });
 
-    // ------------------------------------------
-    // Отправляем историю новому пользователю
-    // ------------------------------------------
+
+    // --------------------------------------------------
+    // SEND HISTORY
+    // --------------------------------------------------
 
     const messages =
       await this.loadMessages();
+
 
     server.send(
       JSON.stringify({
@@ -247,176 +335,236 @@ export class DenessaRoom extends DurableObject {
       })
     );
 
-    // ------------------------------------------
-    // Обновляем онлайн
-    // ------------------------------------------
+
+    // --------------------------------------------------
+    // SEND PRESENCE TO EVERYONE
+    // --------------------------------------------------
 
     this.broadcastPresence();
 
-    return new Response(null, {
-      status: 101,
-      webSocket: client,
-    });
+
+    // --------------------------------------------------
+    // RESPONSE
+    // --------------------------------------------------
+
+    return new Response(
+      null,
+      {
+        status: 101,
+        webSocket: client,
+      }
+    );
   }
 
-  // ======================================================
-  // НОВОЕ СООБЩЕНИЕ
-  // ======================================================
 
-  async webSocketMessage(ws, rawMessage) {
+  // ====================================================
+  // MESSAGE RECEIVED
+  // ====================================================
+
+  async webSocketMessage(
+    ws,
+    rawMessage
+  ) {
+
     try {
-      let data;
 
-      if (typeof rawMessage === "string") {
-        data = JSON.parse(rawMessage);
-      } else {
-        data = rawMessage;
-      }
+      const data =
+        typeof rawMessage === "string"
+          ? JSON.parse(rawMessage)
+          : JSON.parse(
+              new TextDecoder().decode(
+                rawMessage
+              )
+            );
+
 
       if (!data) {
         return;
       }
 
-      // ------------------------------------------
-      // Сообщение
-      // ------------------------------------------
 
-      if (data.type === "message") {
-        const text = String(
+      // ------------------------------------------------
+      // ONLY MESSAGE
+      // ------------------------------------------------
+
+      if (
+        data.type !== "message"
+      ) {
+        return;
+      }
+
+
+      const text =
+        String(
           data.text ||
-            data.content ||
-            ""
+          data.content ||
+          ""
         ).trim();
 
-        if (!text) {
-          return;
-        }
 
-        const attachment =
-          ws.deserializeAttachment() || {};
-
-        const author =
-          String(
-            data.author ||
-              attachment.username ||
-              "Участник"
-          );
-
-        const clientId =
-          String(
-            data.clientId ||
-              attachment.clientId ||
-              ""
-          );
-
-        const now = new Date();
-
-        const time =
-          data.time ||
-          now.toLocaleTimeString(
-            "ru-RU",
-            {
-              hour: "2-digit",
-              minute: "2-digit",
-            }
-          );
-
-        const message = {
-          id:
-            data.id ||
-            `${Date.now()}-${crypto.randomUUID()}`,
-
-          clientId,
-
-          author,
-
-          text,
-
-          time,
-
-          mine: false,
-        };
-
-        // ----------------------------------------
-        // Сохраняем в Durable Object SQLite
-        // ----------------------------------------
-
-        await this.saveMessage(message);
-
-        // ----------------------------------------
-        // Отправляем ВСЕМ пользователям
-        // ----------------------------------------
-
-        this.broadcast({
-          type: "message",
-          message,
-        });
-
+      if (!text) {
         return;
       }
 
-      // ------------------------------------------
-      // Ping
-      // ------------------------------------------
 
-      if (data.type === "ping") {
-        ws.send(
-          JSON.stringify({
-            type: "pong",
-            time: Date.now(),
-          })
+      // ------------------------------------------------
+      // USER
+      // ------------------------------------------------
+
+      const attachment =
+        ws.deserializeAttachment() ||
+        {};
+
+
+      const author =
+        String(
+          data.author ||
+          attachment.username ||
+          "Участник"
         );
 
-        return;
-      }
+
+      const clientId =
+        String(
+          data.clientId ||
+          attachment.clientId ||
+          ""
+        );
+
+
+      // ------------------------------------------------
+      // TIME
+      // ------------------------------------------------
+
+      const now =
+        new Date();
+
+
+      const time =
+        now.toLocaleTimeString(
+          "ru-RU",
+          {
+            hour: "2-digit",
+            minute: "2-digit",
+          }
+        );
+
+
+      // ------------------------------------------------
+      // ID
+      // ------------------------------------------------
+
+      const id =
+        data.id ||
+        `${Date.now()}-${crypto.randomUUID()}`;
+
+
+      // ------------------------------------------------
+      // MESSAGE
+      // ------------------------------------------------
+
+      const message = {
+
+        id,
+
+        clientId,
+
+        author,
+
+        text,
+
+        time,
+
+      };
+
+
+      // ------------------------------------------------
+      // SAVE
+      // ------------------------------------------------
+
+      await this.saveMessage(
+        message
+      );
+
+
+      // ------------------------------------------------
+      // BROADCAST
+      // ------------------------------------------------
+
+      this.broadcast({
+        type: "message",
+        message,
+      });
+
     } catch (error) {
+
       console.error(
-        "Denessa WebSocket message error:",
+        "Denessa message error:",
         error
       );
 
+
       try {
+
         ws.send(
           JSON.stringify({
             type: "error",
             message:
-              "Не удалось обработать сообщение.",
+              "Ошибка отправки сообщения.",
           })
         );
+
       } catch {}
+
     }
   }
 
-  // ======================================================
-  // CLOSE
-  // ======================================================
 
-  async webSocketClose(ws) {
+  // ====================================================
+  // CLOSE
+  // ====================================================
+
+  async webSocketClose(
+    ws,
+    code,
+    reason
+  ) {
+
     console.log(
-      "Denessa user disconnected"
+      "Denessa socket closed:",
+      code,
+      reason
     );
+
 
     this.broadcastPresence();
   }
 
-  // ======================================================
-  // ERROR
-  // ======================================================
 
-  async webSocketError(ws, error) {
+  // ====================================================
+  // ERROR
+  // ====================================================
+
+  async webSocketError(
+    ws,
+    error
+  ) {
+
     console.error(
       "Denessa WebSocket error:",
       error
     );
-
-    this.broadcastPresence();
   }
 
-  // ======================================================
-  // СОХРАНЕНИЕ
-  // ======================================================
 
-  async saveMessage(message) {
+  // ====================================================
+  // SAVE MESSAGE
+  // ====================================================
+
+  async saveMessage(
+    message
+  ) {
+
     this.ctx.storage.sql.exec(
       `
       INSERT OR REPLACE INTO messages
@@ -438,7 +586,10 @@ export class DenessaRoom extends DurableObject {
       Date.now()
     );
 
-    // Оставляем последние 100 сообщений
+
+    // --------------------------------------------------
+    // KEEP LAST 100
+    // --------------------------------------------------
 
     this.ctx.storage.sql.exec(
       `
@@ -454,11 +605,13 @@ export class DenessaRoom extends DurableObject {
     );
   }
 
-  // ======================================================
-  // ЗАГРУЗКА ИСТОРИИ
-  // ======================================================
+
+  // ====================================================
+  // LOAD MESSAGES
+  // ====================================================
 
   async loadMessages() {
+
     const result =
       this.ctx.storage.sql.exec(
         `
@@ -475,9 +628,13 @@ export class DenessaRoom extends DurableObject {
         MAX_MESSAGES
       );
 
-    return Array.from(result).map(
+
+    return Array.from(
+      result
+    ).map(
       (row) => ({
-        id: row.id,
+        id:
+          row.id,
 
         clientId:
           row.client_id || "",
@@ -490,95 +647,142 @@ export class DenessaRoom extends DurableObject {
 
         time:
           row.time,
-
-        mine: false,
       })
     );
   }
 
-  // ======================================================
-  // API /messages
-  // ======================================================
+
+  // ====================================================
+  // API MESSAGES
+  // ====================================================
 
   async getMessages() {
+
     const messages =
       await this.loadMessages();
 
+
     return Response.json({
       ok: true,
-      room: DEFAULT_ROOM,
+
+      room:
+        DEFAULT_ROOM,
+
+      online:
+        this.ctx
+          .getWebSockets()
+          .length,
+
       messages,
     });
   }
 
-  // ======================================================
-  // API /room
-  // ======================================================
+
+  // ====================================================
+  // ROOM INFO
+  // ====================================================
 
   async getRoomInfo() {
+
     const sockets =
       this.ctx.getWebSockets();
+
 
     const messages =
       await this.loadMessages();
 
+
     return Response.json({
+
       ok: true,
 
-      room: DEFAULT_ROOM,
+      room:
+        DEFAULT_ROOM,
 
       online:
         sockets.length,
 
       messageCount:
         messages.length,
+
     });
   }
 
-  // ======================================================
-  // ONLINE
-  // ======================================================
+
+  // ====================================================
+  // PRESENCE
+  // ====================================================
 
   broadcastPresence() {
+
     const online =
       this.ctx
         .getWebSockets()
+        .filter(
+          (socket) =>
+            socket.readyState ===
+            WebSocket.OPEN
+        )
         .length;
 
+
+    console.log(
+      "Denessa presence:",
+      online
+    );
+
+
     this.broadcast({
-      type: "presence",
+
+      type:
+        "presence",
+
       online,
+
     });
   }
 
-  // ======================================================
-  // BROADCAST
-  // ======================================================
 
-  broadcast(data, except = null) {
+  // ====================================================
+  // BROADCAST
+  // ====================================================
+
+  broadcast(
+    data
+  ) {
+
     const encoded =
       JSON.stringify(data);
+
 
     const sockets =
       this.ctx.getWebSockets();
 
-    for (const socket of sockets) {
-      if (socket === except) {
-        continue;
-      }
+
+    for (
+      const socket of sockets
+    ) {
 
       try {
+
         if (
           socket.readyState ===
           WebSocket.OPEN
         ) {
-          socket.send(encoded);
+
+          socket.send(
+            encoded
+          );
+
         }
+
       } catch (error) {
+
         console.error(
           "Denessa broadcast error:",
           error
         );
+
       }
     }
   }
