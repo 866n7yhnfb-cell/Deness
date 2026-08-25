@@ -14,6 +14,10 @@ function Denessa() {
   const reconnectRef = useRef(null);
   const bottomRef = useRef(null);
 
+  // ==================================================
+  // WEBSOCKET
+  // ==================================================
+
   const connect = () => {
     try {
       if (socketRef.current) {
@@ -73,7 +77,9 @@ function Denessa() {
             };
           }
 
-          if (!message || typeof message !== "object") return;
+          if (!message || typeof message !== "object") {
+            return;
+          }
 
           const normalized = {
             id:
@@ -92,11 +98,10 @@ function Denessa() {
               message.name ||
               "Участник",
 
-            mine:
-              Boolean(
-                message.mine ||
-                message.isMine
-              ),
+            mine: Boolean(
+              message.mine ||
+              message.isMine
+            ),
 
             time:
               message.time ||
@@ -118,19 +123,32 @@ function Denessa() {
                 )
             );
 
-            if (exists) return old;
+            if (exists) {
+              return old;
+            }
 
             return [...old, normalized];
           });
         } catch (error) {
-          console.log("Denessa message error:", error);
+          console.log(
+            "Denessa message error:",
+            error
+          );
         }
       };
     } catch (error) {
-      console.log("Denessa connection error:", error);
+      console.log(
+        "Denessa connection error:",
+        error
+      );
+
       setConnected(false);
     }
   };
+
+  // ==================================================
+  // START
+  // ==================================================
 
   useEffect(() => {
     connect();
@@ -144,13 +162,24 @@ function Denessa() {
     };
   }, []);
 
+  // ==================================================
+  // SCROLL
+  // ==================================================
+
   useEffect(() => {
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       bottomRef.current?.scrollIntoView({
         behavior: "smooth",
+        block: "end",
       });
-    }, 50);
+    }, 60);
+
+    return () => clearTimeout(timer);
   }, [messages]);
+
+  // ==================================================
+  // SEND MESSAGE
+  // ==================================================
 
   const sendMessage = () => {
     const value = text.trim();
@@ -170,7 +199,11 @@ function Denessa() {
       }),
     };
 
-    setMessages((old) => [...old, localMessage]);
+    setMessages((old) => [
+      ...old,
+      localMessage,
+    ]);
+
     setText("");
 
     try {
@@ -180,25 +213,32 @@ function Denessa() {
         socket &&
         socket.readyState === WebSocket.OPEN
       ) {
-        const payload = {
-          type: "message",
-          room: ROOM,
-          text: value,
-          author: "Вы",
-          time: localMessage.time,
-          id: localMessage.id,
-        };
-
-        socket.send(JSON.stringify(payload));
+        socket.send(
+          JSON.stringify({
+            type: "message",
+            room: ROOM,
+            text: value,
+            author: "Вы",
+            time: localMessage.time,
+            id: localMessage.id,
+          })
+        );
       }
     } catch (error) {
-      console.log("Denessa send error:", error);
+      console.log(
+        "Denessa send error:",
+        error
+      );
     }
 
     setTimeout(() => {
       setSending(false);
     }, 150);
   };
+
+  // ==================================================
+  // ENTER
+  // ==================================================
 
   const handleKeyDown = (event) => {
     if (
@@ -210,81 +250,105 @@ function Denessa() {
     }
   };
 
+  // ==================================================
+  // UI
+  // ==================================================
+
   return (
     <div className="denessa-app">
 
-      {/* TOP BAR */}
+      {/* ============================================
+          TOP HEADER
+      ============================================ */}
 
       <header className="topbar">
 
-        <button className="menu-button">
-          <span />
-          <span />
-          <span />
-        </button>
+        <div className="topbar-inner">
 
-        <div className="brand">
-
-          <div className="brand-logo">
-            <span>D</span>
-          </div>
-
-          <div className="brand-copy">
-            <div className="brand-name">
-              Denessa
-            </div>
-
-            <div className="brand-subtitle">
-              Private ocean
-            </div>
-          </div>
-
-        </div>
-
-        <div className="top-actions">
-
-          <div className="online-status">
-
-            <span
-              className={
-                connected
-                  ? "status-dot online"
-                  : "status-dot"
-              }
-            />
-
-            <span>
-              {connected
-                ? "Онлайн"
-                : "Подключение"}
-            </span>
-
-          </div>
-
-          <button className="profile-button">
-            J
+          <button
+            className="menu-button"
+            type="button"
+            aria-label="Меню"
+          >
+            <span />
+            <span />
+            <span />
           </button>
+
+          <div className="brand">
+
+            <div className="brand-logo">
+              D
+            </div>
+
+            <div className="brand-copy">
+
+              <div className="brand-name">
+                Denessa
+              </div>
+
+              <div className="brand-subtitle">
+                Private ocean
+              </div>
+
+            </div>
+
+          </div>
+
+          <div className="topbar-right">
+
+            <div className="online-status">
+
+              <span
+                className={
+                  connected
+                    ? "status-dot online"
+                    : "status-dot"
+                }
+              />
+
+              <span>
+                {connected
+                  ? "Онлайн"
+                  : "Подключение"}
+              </span>
+
+            </div>
+
+            <div className="profile">
+              J
+            </div>
+
+          </div>
 
         </div>
 
       </header>
 
-
-      {/* CHAT HEADER */}
+      {/* ============================================
+          CHAT HEADER
+      ============================================ */}
 
       <section className="chat-header">
 
-        <div className="chat-header-left">
+        <div className="chat-header-inner">
 
-          <button className="back-button">
+          <button
+            className="back-button"
+            type="button"
+            onClick={() =>
+              window.history.back()
+            }
+            aria-label="Назад"
+          >
             ‹
           </button>
 
-          <div className="chat-icon">
+          <div className="chat-avatar">
             ⚓
           </div>
 
-          <div className="chat-title-area">
+          <div className="chat-info">
 
             <div className="chat-title">
               Denessa Lounge
@@ -294,156 +358,161 @@ function Denessa() {
 
               <span className="small-dot" />
 
-              {connected
-                ? "1 участник онлайн"
-                : "Подключение..."}
+              <span>
+                {connected
+                  ? "1 участник онлайн"
+                  : "Подключение..."}
+              </span>
 
             </div>
 
           </div>
 
-        </div>
+          <div className="chat-actions">
 
-        <div className="chat-actions">
+            <button
+              className="chat-action"
+              type="button"
+              aria-label="Поиск"
+            >
+              ⌕
+            </button>
 
-          <button className="chat-action">
-            ⌕
-          </button>
+            <button
+              className="chat-action"
+              type="button"
+              aria-label="Ещё"
+            >
+              •••
+            </button>
 
-          <button className="chat-action">
-            •••
-          </button>
+          </div>
 
         </div>
 
       </section>
 
-
-      {/* CHAT */}
+      {/* ============================================
+          MESSAGES
+      ============================================ */}
 
       <main className="messages-area">
 
-        {messages.length === 0 && (
+        <div className="messages-inner">
 
-          <div className="welcome">
+          {messages.length === 0 && (
+            <div className="welcome">
 
-            <div className="welcome-glow" />
-
-            <div className="welcome-anchor">
-              ⚓
-            </div>
-
-            <div className="welcome-label">
-              DENESSA LOUNGE
-            </div>
-
-            <h1>
-              Добро пожаловать
-              <br />
-              в Denessa
-            </h1>
-
-            <p>
-              Ваше пространство для общения
-              <br />
-              в океане идей.
-            </p>
-
-            <div className="welcome-line">
-              <span />
-              <span>PRIVATE CHANNEL</span>
-              <span />
-            </div>
-
-          </div>
-
-        )}
-
-
-        {messages.length > 0 && (
-
-          <div className="message-date">
-            Сегодня
-          </div>
-
-        )}
-
-
-        {messages.map((message) => (
-
-          <div
-            className={
-              message.mine
-                ? "message-row mine"
-                : "message-row"
-            }
-            key={message.id}
-          >
-
-            {!message.mine && (
-
-              <div className="message-avatar">
+              <div className="welcome-icon">
                 ⚓
               </div>
 
-            )}
+              <div className="welcome-label">
+                DENESSA LOUNGE
+              </div>
 
+              <h1>
+                Добро пожаловать
+                <br />
+                в Denessa
+              </h1>
+
+              <p>
+                Ваше пространство для общения
+                <br />
+                в океане идей.
+              </p>
+
+              <div className="welcome-channel">
+                PRIVATE CHANNEL
+              </div>
+
+            </div>
+          )}
+
+          {messages.length > 0 && (
+            <div className="today-label">
+              Сегодня
+            </div>
+          )}
+
+          {messages.map((message) => (
             <div
               className={
                 message.mine
-                  ? "message-bubble mine-bubble"
-                  : "message-bubble"
+                  ? "message-row mine"
+                  : "message-row"
               }
+              key={message.id}
             >
 
               {!message.mine && (
-
-                <div className="message-author">
-                  {message.author}
+                <div className="message-avatar">
+                  ⚓
                 </div>
-
               )}
 
-              <div className="message-text">
-                {message.text}
-              </div>
+              <div
+                className={
+                  message.mine
+                    ? "message-bubble mine-bubble"
+                    : "message-bubble"
+                }
+              >
 
-              <div className="message-footer">
-
-                <span className="message-time">
-                  {message.time}
-                </span>
-
-                {message.mine && (
-                  <span className="message-check">
-                    ✓✓
-                  </span>
+                {!message.mine && (
+                  <div className="message-author">
+                    {message.author}
+                  </div>
                 )}
+
+                <div className="message-text">
+                  {message.text}
+                </div>
+
+                <div className="message-meta">
+
+                  <span>
+                    {message.time}
+                  </span>
+
+                  {message.mine && (
+                    <span className="checks">
+                      ✓✓
+                    </span>
+                  )}
+
+                </div>
 
               </div>
 
             </div>
+          ))}
 
-          </div>
+          <div ref={bottomRef} />
 
-        ))}
-
-        <div ref={bottomRef} />
+        </div>
 
       </main>
 
-
-      {/* COMPOSER */}
+      {/* ============================================
+          MESSAGE COMPOSER
+      ============================================ */}
 
       <footer className="composer">
 
-        <button className="composer-add">
-          +
-        </button>
+        <div className="composer-inner">
 
-        <div className="composer-input">
+          <button
+            className="add-button"
+            type="button"
+            aria-label="Добавить"
+          >
+            +
+          </button>
 
           <textarea
+            className="message-input"
             value={text}
             onChange={(event) =>
               setText(event.target.value)
@@ -451,38 +520,32 @@ function Denessa() {
             onKeyDown={handleKeyDown}
             placeholder="Напишите сообщение..."
             rows={1}
+            enterKeyHint="send"
           />
+
+          <button
+            className="send-button"
+            type="button"
+            onClick={sendMessage}
+            disabled={
+              !text.trim() || sending
+            }
+            aria-label="Отправить"
+          >
+            ➤
+          </button>
 
         </div>
 
-        <button
-          className={
-            text.trim()
-              ? "send-button active"
-              : "send-button"
-          }
-          onClick={sendMessage}
-          disabled={
-            !text.trim() ||
-            sending
-          }
-        >
-          ➤
-        </button>
-
       </footer>
-
-
-      {/* BOTTOM DECORATION */}
-
-      <div className="ocean-glow" />
 
     </div>
   );
 }
 
-
-/* ERROR PROTECTION */
+// ==================================================
+// ERROR BOUNDARY
+// ==================================================
 
 class DenessaErrorBoundary
   extends React.Component {
@@ -509,18 +572,31 @@ class DenessaErrorBoundary
   }
 
   render() {
-
     if (this.state.hasError) {
-
       return (
-        <div className="denessa-error">
+        <div
+          style={{
+            minHeight: "100vh",
+            background: "#061923",
+            color: "#eefaff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "column",
+            padding: "30px",
+            textAlign: "center",
+            fontFamily:
+              "-apple-system, BlinkMacSystemFont, sans-serif",
+          }}
+        >
 
-          <div className="error-anchor">
+          <div
+            style={{
+              fontSize: "58px",
+              marginBottom: "18px",
+            }}
+          >
             ⚓
-          </div>
-
-          <div className="error-logo">
-            D
           </div>
 
           <h1>
@@ -528,15 +604,25 @@ class DenessaErrorBoundary
           </h1>
 
           <p>
-            Произошла небольшая ошибка.
+            Произошла ошибка интерфейса.
           </p>
 
           <button
             onClick={() =>
               window.location.reload()
             }
+            style={{
+              marginTop: "20px",
+              padding: "14px 24px",
+              borderRadius: "14px",
+              border: "none",
+              background: "#4db5d4",
+              color: "#061923",
+              fontSize: "16px",
+              fontWeight: "700",
+            }}
           >
-            Перезагрузить
+            Перезагрузить Denessa
           </button>
 
         </div>
@@ -547,15 +633,21 @@ class DenessaErrorBoundary
   }
 }
 
+// ==================================================
+// MOUNT
+// ==================================================
 
-createRoot(
-  document.getElementById("root")
-).render(
+const rootElement =
+  document.getElementById("root");
 
+if (!rootElement) {
+  throw new Error(
+    "Denessa: элемент #root не найден."
+  );
+}
+
+createRoot(rootElement).render(
   <DenessaErrorBoundary>
-
     <Denessa />
-
   </DenessaErrorBoundary>
-
 );
