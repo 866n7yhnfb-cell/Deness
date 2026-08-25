@@ -1,16 +1,32 @@
-name = "denessa-messenger"
-main = "src/index.js"
-compatibility_date = "2026-08-22"
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
 
-[assets]
-directory = "./dist"
-not_found_handling = "single-page-application"
+  "name": "denessa",
 
-[durable_objects]
-bindings = [
-  { name = "DENESSA_CHAT", class_name = "DenessaChat" }
-]
+  "main": "worker.js",
 
-[[migrations]]
-tag = "v1"
-new_sqlite_classes = ["DenessaChat"]
+  "compatibility_date": "2026-08-25",
+
+  "observability": {
+    "enabled": true
+  },
+
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "DENESSA_ROOM",
+        "class_name": "DenessaRoom",
+        "script_name": "denessa"
+      }
+    ]
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "DenessaRoom"
+      ]
+    }
+  ]
+}
