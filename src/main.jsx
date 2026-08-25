@@ -14,10 +14,6 @@ function Denessa() {
   const reconnectRef = useRef(null);
   const bottomRef = useRef(null);
 
-  // --------------------------------------------------
-  // WebSocket
-  // --------------------------------------------------
-
   const connect = () => {
     try {
       if (socketRef.current) {
@@ -136,10 +132,6 @@ function Denessa() {
     }
   };
 
-  // --------------------------------------------------
-  // Start
-  // --------------------------------------------------
-
   useEffect(() => {
     connect();
 
@@ -152,10 +144,6 @@ function Denessa() {
     };
   }, []);
 
-  // --------------------------------------------------
-  // Scroll
-  // --------------------------------------------------
-
   useEffect(() => {
     setTimeout(() => {
       bottomRef.current?.scrollIntoView({
@@ -163,10 +151,6 @@ function Denessa() {
       });
     }, 50);
   }, [messages]);
-
-  // --------------------------------------------------
-  // Send
-  // --------------------------------------------------
 
   const sendMessage = () => {
     const value = text.trim();
@@ -186,16 +170,16 @@ function Denessa() {
       }),
     };
 
-    // ВАЖНО:
-    // Сначала показываем сообщение локально.
-    // Поэтому ошибка сервера не сможет удалить экран.
     setMessages((old) => [...old, localMessage]);
     setText("");
 
     try {
       const socket = socketRef.current;
 
-      if (socket && socket.readyState === WebSocket.OPEN) {
+      if (
+        socket &&
+        socket.readyState === WebSocket.OPEN
+      ) {
         const payload = {
           type: "message",
           room: ROOM,
@@ -206,13 +190,9 @@ function Denessa() {
         };
 
         socket.send(JSON.stringify(payload));
-      } else {
-        console.log(
-          "WebSocket пока не подключён. Сообщение сохранено локально."
-        );
       }
     } catch (error) {
-      console.log("Send error:", error);
+      console.log("Denessa send error:", error);
     }
 
     setTimeout(() => {
@@ -220,109 +200,141 @@ function Denessa() {
     }, 150);
   };
 
-  // --------------------------------------------------
-  // Enter
-  // --------------------------------------------------
-
   const handleKeyDown = (event) => {
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey
+    ) {
       event.preventDefault();
       sendMessage();
     }
   };
 
-  // --------------------------------------------------
-  // UI
-  // --------------------------------------------------
-
   return (
     <div className="denessa-app">
+
+      {/* TOP BAR */}
 
       <header className="topbar">
 
         <button className="menu-button">
-          ☰
+          <span />
+          <span />
+          <span />
         </button>
 
         <div className="brand">
 
           <div className="brand-logo">
-            D
+            <span>D</span>
           </div>
 
-          <div>
+          <div className="brand-copy">
             <div className="brand-name">
               Denessa
             </div>
 
             <div className="brand-subtitle">
-              Морской мессенджер
+              Private ocean
             </div>
           </div>
 
         </div>
 
-        <div className="online-status">
-          <span
-            className={
-              connected
-                ? "status-dot online"
-                : "status-dot"
-            }
-          />
+        <div className="top-actions">
 
-          <span className="status-text">
-            {connected ? "онлайн" : "подключение"}
-          </span>
-        </div>
+          <div className="online-status">
 
-        <div className="profile">
-          J
+            <span
+              className={
+                connected
+                  ? "status-dot online"
+                  : "status-dot"
+              }
+            />
+
+            <span>
+              {connected
+                ? "Онлайн"
+                : "Подключение"}
+            </span>
+
+          </div>
+
+          <button className="profile-button">
+            J
+          </button>
+
         </div>
 
       </header>
 
+
+      {/* CHAT HEADER */}
+
       <section className="chat-header">
 
-        <button
-          className="back-button"
-          onClick={() => window.history.back()}
-        >
-          ‹
-        </button>
+        <div className="chat-header-left">
 
-        <div className="chat-icon">
-          ⚓
-        </div>
+          <button className="back-button">
+            ‹
+          </button>
 
-        <div className="chat-title-area">
-
-          <div className="chat-title">
-            Denessa Lounge
+          <div className="chat-icon">
+            ⚓
           </div>
 
-          <div className="chat-members">
-            <span className="small-dot" />
-            {connected
-              ? "1 участник онлайн"
-              : "Подключение..."}
+          <div className="chat-title-area">
+
+            <div className="chat-title">
+              Denessa Lounge
+            </div>
+
+            <div className="chat-members">
+
+              <span className="small-dot" />
+
+              {connected
+                ? "1 участник онлайн"
+                : "Подключение..."}
+
+            </div>
+
           </div>
 
         </div>
 
-        <button className="more-button">
-          •••
-        </button>
+        <div className="chat-actions">
+
+          <button className="chat-action">
+            ⌕
+          </button>
+
+          <button className="chat-action">
+            •••
+          </button>
+
+        </div>
 
       </section>
+
+
+      {/* CHAT */}
 
       <main className="messages-area">
 
         {messages.length === 0 && (
+
           <div className="welcome">
+
+            <div className="welcome-glow" />
 
             <div className="welcome-anchor">
               ⚓
+            </div>
+
+            <div className="welcome-label">
+              DENESSA LOUNGE
             </div>
 
             <h1>
@@ -332,14 +344,33 @@ function Denessa() {
             </h1>
 
             <p>
-              Общайтесь. Создавайте.
-              Плывите дальше.
+              Ваше пространство для общения
+              <br />
+              в океане идей.
             </p>
 
+            <div className="welcome-line">
+              <span />
+              <span>PRIVATE CHANNEL</span>
+              <span />
+            </div>
+
           </div>
+
         )}
 
+
+        {messages.length > 0 && (
+
+          <div className="message-date">
+            Сегодня
+          </div>
+
+        )}
+
+
         {messages.map((message) => (
+
           <div
             className={
               message.mine
@@ -348,6 +379,14 @@ function Denessa() {
             }
             key={message.id}
           >
+
+            {!message.mine && (
+
+              <div className="message-avatar">
+                ⚓
+              </div>
+
+            )}
 
             <div
               className={
@@ -358,63 +397,96 @@ function Denessa() {
             >
 
               {!message.mine && (
+
                 <div className="message-author">
                   {message.author}
                 </div>
+
               )}
 
               <div className="message-text">
                 {message.text}
               </div>
 
-              <div className="message-time">
-                {message.time}
+              <div className="message-footer">
+
+                <span className="message-time">
+                  {message.time}
+                </span>
+
+                {message.mine && (
+                  <span className="message-check">
+                    ✓✓
+                  </span>
+                )}
+
               </div>
 
             </div>
 
           </div>
+
         ))}
 
         <div ref={bottomRef} />
 
       </main>
 
+
+      {/* COMPOSER */}
+
       <footer className="composer">
 
-        <button className="add-button">
+        <button className="composer-add">
           +
         </button>
 
-        <textarea
-          value={text}
-          onChange={(event) =>
-            setText(event.target.value)
-          }
-          onKeyDown={handleKeyDown}
-          placeholder="Напишите сообщение..."
-          rows={1}
-        />
+        <div className="composer-input">
+
+          <textarea
+            value={text}
+            onChange={(event) =>
+              setText(event.target.value)
+            }
+            onKeyDown={handleKeyDown}
+            placeholder="Напишите сообщение..."
+            rows={1}
+          />
+
+        </div>
 
         <button
-          className="send-button"
+          className={
+            text.trim()
+              ? "send-button active"
+              : "send-button"
+          }
           onClick={sendMessage}
-          disabled={!text.trim() || sending}
+          disabled={
+            !text.trim() ||
+            sending
+          }
         >
           ➤
         </button>
 
       </footer>
 
+
+      {/* BOTTOM DECORATION */}
+
+      <div className="ocean-glow" />
+
     </div>
   );
 }
 
-// --------------------------------------------------
-// Error protection
-// --------------------------------------------------
 
-class DenessaErrorBoundary extends React.Component {
+/* ERROR PROTECTION */
+
+class DenessaErrorBoundary
+  extends React.Component {
+
   constructor(props) {
     super(props);
 
@@ -430,33 +502,25 @@ class DenessaErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error) {
-    console.error("Denessa crashed:", error);
+    console.error(
+      "Denessa crashed:",
+      error
+    );
   }
 
   render() {
+
     if (this.state.hasError) {
+
       return (
-        <div
-          style={{
-            minHeight: "100vh",
-            background: "#061925",
-            color: "#eaf8ff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexDirection: "column",
-            padding: "30px",
-            textAlign: "center",
-            fontFamily: "Arial, sans-serif",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "64px",
-              marginBottom: "20px",
-            }}
-          >
+        <div className="denessa-error">
+
+          <div className="error-anchor">
             ⚓
+          </div>
+
+          <div className="error-logo">
+            D
           </div>
 
           <h1>
@@ -464,24 +528,17 @@ class DenessaErrorBoundary extends React.Component {
           </h1>
 
           <p>
-            Произошла ошибка интерфейса.
+            Произошла небольшая ошибка.
           </p>
 
           <button
-            onClick={() => window.location.reload()}
-            style={{
-              marginTop: "20px",
-              padding: "14px 24px",
-              borderRadius: "14px",
-              border: "none",
-              background: "#4faed0",
-              color: "white",
-              fontSize: "16px",
-              fontWeight: "700",
-            }}
+            onClick={() =>
+              window.location.reload()
+            }
           >
-            Перезагрузить Denessa
+            Перезагрузить
           </button>
+
         </div>
       );
     }
@@ -490,10 +547,15 @@ class DenessaErrorBoundary extends React.Component {
   }
 }
 
+
 createRoot(
   document.getElementById("root")
 ).render(
+
   <DenessaErrorBoundary>
+
     <Denessa />
+
   </DenessaErrorBoundary>
+
 );
