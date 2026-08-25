@@ -1,777 +1,440 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./style.css";
 
-const ROOM = "denessa-lounge";
-
-const CHATS = [
+const chats = [
   {
     id: "lounge",
-    title: "Denessa Lounge",
-    subtitle: "Общий чат Denessa",
-    icon: "⚓",
+    name: "Denessa Lounge",
+    subtitle: "Общий канал",
+    preview: "Добро пожаловать в Denessa",
+    time: "сейчас",
+    avatar: "⚓",
+    theme: "ocean",
+    online: true,
   },
   {
     id: "captains",
-    title: "Капитаны",
-    subtitle: "Команда и участники",
-    icon: "✦",
+    name: "Капитаны",
+    subtitle: "Команда Denessa",
+    preview: "Новые идеи уже здесь",
+    time: "12:42",
+    avatar: "✦",
+    theme: "captain",
+    online: true,
   },
   {
     id: "ideas",
-    title: "Морские идеи",
-    subtitle: "Идеи и предложения",
-    icon: "◈",
+    name: "Морские идеи",
+    subtitle: "Обсуждения",
+    preview: "Обсудим новый маршрут?",
+    time: "11:28",
+    avatar: "◯",
+    theme: "ideas",
+    online: false,
   },
 ];
 
+const initialMessages = [
+  {
+    id: 1,
+    author: "Denessa",
+    text: "Добро пожаловать в Denessa 🌊",
+    time: "18:42",
+    mine: false,
+  },
+  {
+    id: 2,
+    author: "Вы",
+    text: "Привет! Очень красиво здесь.",
+    time: "18:43",
+    mine: true,
+  },
+];
+
+function Avatar({ chat, size = "normal" }) {
+  return (
+    <div className={`chat-avatar ${chat.theme} avatar-${size}`}>
+      <span>{chat.avatar}</span>
+    </div>
+  );
+}
+
 function Denessa() {
-  const [screen, setScreen] = useState("chats");
   const [activeChat, setActiveChat] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [text, setText] = useState("");
-  const [connected, setConnected] = useState(false);
   const [search, setSearch] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [messages, setMessages] = useState(initialMessages);
 
-  const socketRef = useRef(null);
-  const reconnectRef = useRef(null);
-  const bottomRef = useRef(null);
+  const filteredChats = useMemo(() => {
+    const value = search.trim().toLowerCase();
 
-  /* =========================
-     WEBSOCKET
-  ========================= */
+    if (!value) return chats;
 
-  const connect = () => {
-    try {
-      if (socketRef.current) {
-        try {
-          socketRef.current.close();
-        } catch {}
-      }
+    return chats.filter(
+      (chat) =>
+        chat.name.toLowerCase().includes(value) ||
+        chat.subtitle.toLowerCase().includes(value) ||
+        chat.preview.toLowerCase().includes(value)
+    );
+  }, [search]);
 
-      const protocol =
-        window.location.protocol === "https:"
-          ? "wss:"
-          : "ws:";
-
-      const url =
-        `${protocol}//${window.location.host}/ws?room=${encodeURIComponent(ROOM)}`;
-
-      const socket = new WebSocket(url);
-
-      socketRef.current = socket;
-
-      socket.onopen = () => {
-        setConnected(true);
-      };
-
-      socket.onclose = () => {
-        setConnected(false);
-
-        clearTimeout(reconnectRef.current);
-
-        reconnectRef.current = setTimeout(() => {
-          connect();
-        }, 2500);
-      };
-
-      socket.onerror = () => {
-        setConnected(false);
-      };
-
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          let message = data?.message || data;
-
-          if (typeof message === "string") {
-            message = {
-              text: message,
-              author: "Участник",
-            };
-          }
-
-          if (!message || typeof message !== "object") {
-            return;
-          }
-
-          const normalized = {
-            id:
-              message.id ||
-              `${Date.now()}-${Math.random()}`,
-
-            text:
-              message.text ||
-              message.content ||
-              message.body ||
-              "",
-
-            author:
-              message.author ||
-              message.username ||
-              message.name ||
-              "Участник",
-
-            mine: Boolean(
-              message.mine ||
-              message.isMine
-            ),
-
-            time:
-              message.time ||
-              new Date().toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-          };
-
-          if (!normalized.text) return;
-
-          setMessages((old) => {
-            const exists = old.some(
-              (item) =>
-                item.id === normalized.id ||
-                (
-                  item.text === normalized.text &&
-                  item.time === normalized.time
-                )
-            );
-
-            if (exists) {
-              return old;
-            }
-
-            return [...old, normalized];
-          });
-        } catch (error) {
-          console.log(
-            "Denessa message error:",
-            error
-          );
-        }
-      };
-    } catch (error) {
-      console.log(
-        "Denessa connection error:",
-        error
-      );
-
-      setConnected(false);
-    }
-  };
-
-  useEffect(() => {
-    connect();
-
-    return () => {
-      clearTimeout(reconnectRef.current);
-
-      try {
-        socketRef.current?.close();
-      } catch {}
-    };
-  }, []);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({
-      behavior: "smooth",
-    });
-  }, [messages]);
-
-  /* =========================
-     OPEN CHAT
-  ========================= */
-
-  const openChat = (chat) => {
-    setActiveChat(chat);
-    setScreen("chat");
-  };
-
-  const goHome = () => {
-    setScreen("chats");
-    setActiveChat(null);
-  };
-
-  /* =========================
-     SEND
-  ========================= */
+  const currentChat =
+    chats.find((chat) => chat.id === activeChat) || null;
 
   const sendMessage = () => {
     const value = text.trim();
 
     if (!value) return;
 
-    const localMessage = {
-      id: `${Date.now()}-${Math.random()}`,
-      text: value,
-      author: "Вы",
-      mine: true,
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
-
     setMessages((old) => [
       ...old,
-      localMessage,
+      {
+        id: Date.now(),
+        author: "Вы",
+        text: value,
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        mine: true,
+      },
     ]);
 
     setText("");
-
-    try {
-      const socket = socketRef.current;
-
-      if (
-        socket &&
-        socket.readyState === WebSocket.OPEN
-      ) {
-        socket.send(
-          JSON.stringify({
-            type: "message",
-            room: ROOM,
-            text: value,
-            author: "Вы",
-            time: localMessage.time,
-            id: localMessage.id,
-          })
-        );
-      }
-    } catch (error) {
-      console.log(
-        "Denessa send error:",
-        error
-      );
-    }
   };
 
   const handleKeyDown = (event) => {
-    if (
-      event.key === "Enter" &&
-      !event.shiftKey
-    ) {
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       sendMessage();
     }
   };
 
-  /* =========================
-     SEARCH
-  ========================= */
-
-  const filteredChats = CHATS.filter(
-    (chat) => {
-      const query = search
-        .trim()
-        .toLowerCase();
-
-      if (!query) return true;
-
-      return (
-        chat.title
-          .toLowerCase()
-          .includes(query) ||
-        chat.subtitle
-          .toLowerCase()
-          .includes(query)
-      );
-    }
-  );
-
-  /* =========================
-     APP
-  ========================= */
-
   return (
-    <div className="denessa-app">
+    <div className="denessa-shell">
 
-      {/* TOP HEADER */}
+      {/* ================= HEADER ================= */}
 
-      <header className="top-header">
+      <header className="app-header">
 
-        <div className="top-brand">
+        <button className="header-icon" aria-label="Меню">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
 
-          <div className="denessa-logo">
+        <div className="brand">
+
+          <div className="brand-mark">
             D
           </div>
 
-          <div className="top-brand-text">
-
-            <strong>
+          <div className="brand-copy">
+            <div className="brand-name">
               Denessa
-            </strong>
+            </div>
 
-            <span>
+            <div className="brand-subtitle">
               Морской мессенджер
-            </span>
-
+            </div>
           </div>
 
         </div>
 
-        <div className="top-actions">
-
-          <div className="connection">
-
-            <span
-              className={
-                connected
-                  ? "connection-dot"
-                  : "connection-dot offline"
-              }
-            />
-
-            <span>
-              {connected
-                ? "Онлайн"
-                : "Подключение"}
-            </span>
-
-          </div>
-
-          <button
-            className="avatar-button"
-            onClick={() =>
-              setMenuOpen(true)
-            }
-          >
-            J
-          </button>
-
+        <div className="header-online">
+          <span className="online-pulse"></span>
+          <span>Онлайн</span>
         </div>
+
+        <button className="profile-avatar">
+          J
+        </button>
 
       </header>
 
-      {/* CONTENT */}
+      {/* ================= CHAT LIST ================= */}
 
-      <main className="app-content">
+      {!currentChat && (
+        <main className="home-screen">
 
-        {screen === "chats" && (
-          <section className="chats-screen">
+          <section className="welcome-section">
 
-            <div className="welcome-heading">
-
-              <div>
-
-                <span className="section-label">
-                  ВАШЕ ПРОСТРАНСТВО
-                </span>
-
-                <h1>
-                  Причал
-                </h1>
-
+            <div>
+              <div className="section-label">
+                ВАШИ ЧАТЫ
               </div>
 
-              <button className="new-chat-button">
-                +
-              </button>
-
+              <h1 className="page-title">
+                Причал
+              </h1>
             </div>
 
-            <div className="search-container">
+            <button className="new-chat-button">
+              +
+            </button>
 
-              <span>
-                ⌕
-              </span>
+          </section>
 
-              <input
-                value={search}
-                onChange={(event) =>
-                  setSearch(
-                    event.target.value
-                  )
-                }
-                placeholder="Поиск"
-              />
+          <div className="search-box">
 
-            </div>
+            <span className="search-icon">
+              ⌕
+            </span>
 
-            <div className="chats-list">
+            <input
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+              placeholder="Поиск по чатам"
+            />
 
-              {filteredChats.map(
-                (chat) => (
-                  <button
-                    key={chat.id}
-                    className="chat-item"
-                    onClick={() =>
-                      openChat(chat)
-                    }
-                  >
+          </div>
 
-                    <div className="chat-icon">
-                      {chat.icon}
-                    </div>
+          <section className="chat-list">
 
-                    <div className="chat-item-info">
+            {filteredChats.map((chat, index) => (
+              <button
+                key={chat.id}
+                className={`chat-card ${
+                  index === 0 ? "chat-card-active" : ""
+                }`}
+                onClick={() => setActiveChat(chat.id)}
+              >
 
-                      <strong>
-                        {chat.title}
-                      </strong>
+                <Avatar chat={chat} />
 
-                      <span>
-                        {chat.subtitle}
-                      </span>
+                <div className="chat-card-content">
 
-                    </div>
+                  <div className="chat-card-top">
 
-                    <span className="chat-arrow">
-                      ›
+                    <strong>
+                      {chat.name}
+                    </strong>
+
+                    <span>
+                      {chat.time}
                     </span>
 
-                  </button>
-                )
-              )}
+                  </div>
+
+                  <div className="chat-card-bottom">
+
+                    <span>
+                      {chat.preview}
+                    </span>
+
+                    {chat.online && (
+                      <i className="tiny-online"></i>
+                    )}
+
+                  </div>
+
+                </div>
+
+              </button>
+            ))}
+
+          </section>
+
+          <div className="version-card">
+
+            <div className="version-avatar">
+              ⚓
+            </div>
+
+            <div>
+              <strong>
+                Denessa 1.3
+              </strong>
+
+              <span>
+                Плывём в будущее
+              </span>
+            </div>
+
+            <span className="version-arrow">
+              ›
+            </span>
+
+          </div>
+
+        </main>
+      )}
+
+      {/* ================= CHAT ================= */}
+
+      {currentChat && (
+        <main className="chat-screen">
+
+          <header className="conversation-header">
+
+            <button
+              className="back-button"
+              onClick={() => setActiveChat(null)}
+            >
+              ‹
+            </button>
+
+            <Avatar
+              chat={currentChat}
+              size="small"
+            />
+
+            <div className="conversation-info">
+
+              <strong>
+                {currentChat.name}
+              </strong>
+
+              <span>
+                <i className="tiny-online"></i>
+                {currentChat.online
+                  ? "1 участник онлайн"
+                  : "Канал"}
+              </span>
 
             </div>
 
-            <div className="ocean-card">
+            <button className="conversation-action">
+              ⋯
+            </button>
 
-              <div className="ocean-card-icon">
+          </header>
+
+          <section className="messages">
+
+            <div className="date-divider">
+              <span>Сегодня</span>
+            </div>
+
+            <div className="conversation-welcome">
+
+              <div className="large-anchor">
                 ⚓
               </div>
 
-              <div>
-
-                <strong>
-                  Denessa 1.3
-                </strong>
-
-                <span>
-                  Новая глава начинается здесь
-                </span>
-
+              <div className="channel-name">
+                DENESSA LOUNGE
               </div>
+
+              <h2>
+                Добро пожаловать
+                <br />
+                в Denessa
+              </h2>
+
+              <p>
+                Ваше пространство для общения
+                <br />
+                в океане идей.
+              </p>
 
             </div>
 
-          </section>
-        )}
-
-        {screen === "chat" && activeChat && (
-          <section className="chat-screen">
-
-            {/* CHAT HEADER */}
-
-            <header className="chat-topbar">
-
-              <button
-                className="back-button"
-                onClick={goHome}
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`message-line ${
+                  message.mine ? "message-line-mine" : ""
+                }`}
               >
-                ‹
-              </button>
 
-              <div className="chat-top-info">
-
-                <div className="chat-top-icon">
-                  {activeChat.icon}
-                </div>
-
-                <div>
-
-                  <strong>
-                    {activeChat.title}
-                  </strong>
-
-                  <span>
-                    <i
-                      className={
-                        connected
-                          ? "status-small"
-                          : "status-small offline"
-                      }
-                    />
-
-                    {connected
-                      ? "1 участник онлайн"
-                      : "Подключение..."}
-                  </span>
-
-                </div>
-
-              </div>
-
-              <button
-                className="more-button"
-                onClick={() =>
-                  setMenuOpen(true)
-                }
-              >
-                •••
-              </button>
-
-            </header>
-
-            {/* MESSAGES */}
-
-            <div className="messages-container">
-
-              {messages.length === 0 ? (
-                <div className="empty-state">
-
-                  <div className="empty-logo">
+                {!message.mine && (
+                  <div className="message-mini-avatar">
                     ⚓
                   </div>
+                )}
 
-                  <span>
-                    DENESSA LOUNGE
-                  </span>
+                <div
+                  className={`message ${
+                    message.mine
+                      ? "message-mine"
+                      : "message-other"
+                  }`}
+                >
 
-                  <h2>
-                    Добро пожаловать
-                    <br />
-                    в Denessa
-                  </h2>
-
-                  <p>
-                    Общайтесь, создавайте
-                    <br />
-                    и плывите дальше.
-                  </p>
-
-                </div>
-              ) : (
-                <>
-
-                  <div className="today-label">
-                    Сегодня
-                  </div>
-
-                  {messages.map(
-                    (message) => (
-                      <div
-                        key={message.id}
-                        className={
-                          message.mine
-                            ? "message-line mine"
-                            : "message-line"
-                        }
-                      >
-
-                        {!message.mine && (
-                          <div className="message-avatar">
-                            ⚓
-                          </div>
-                        )}
-
-                        <div
-                          className={
-                            message.mine
-                              ? "message mine-message"
-                              : "message"
-                          }
-                        >
-
-                          {!message.mine && (
-                            <strong>
-                              {message.author}
-                            </strong>
-                          )}
-
-                          <div>
-                            {message.text}
-                          </div>
-
-                          <small>
-                            {message.time}
-
-                            {message.mine && (
-                              <b>
-                                ✓✓
-                              </b>
-                            )}
-                          </small>
-
-                        </div>
-
-                      </div>
-                    )
+                  {!message.mine && (
+                    <strong>
+                      {message.author}
+                    </strong>
                   )}
 
-                  <div ref={bottomRef} />
+                  <span className="message-content">
+                    {message.text}
+                  </span>
 
-                </>
-              )}
+                  <small>
+                    {message.time}
 
-            </div>
+                    {message.mine && (
+                      <b>✓✓</b>
+                    )}
+                  </small>
 
-            {/* COMPOSER */}
+                </div>
 
-            <div className="message-composer">
-
-              <button className="composer-plus">
-                +
-              </button>
-
-              <textarea
-                value={text}
-                onChange={(event) =>
-                  setText(
-                    event.target.value
-                  )
-                }
-                onKeyDown={handleKeyDown}
-                placeholder="Сообщение..."
-                rows={1}
-              />
-
-              <button
-                className={
-                  text.trim()
-                    ? "composer-send active"
-                    : "composer-send"
-                }
-                onClick={sendMessage}
-                disabled={!text.trim()}
-              >
-                ➤
-              </button>
-
-            </div>
+              </div>
+            ))}
 
           </section>
-        )}
 
-      </main>
+          <footer className="composer">
 
-      {/* BOTTOM NAV */}
+            <button className="add-button">
+              +
+            </button>
 
-      {screen === "chats" && (
-        <nav className="bottom-navigation">
+            <textarea
+              value={text}
+              onChange={(event) =>
+                setText(event.target.value)
+              }
+              onKeyDown={handleKeyDown}
+              placeholder="Напишите сообщение..."
+              rows={1}
+            />
 
-          <button className="nav-item active">
+            <button
+              className="send-button"
+              disabled={!text.trim()}
+              onClick={sendMessage}
+            >
+              ➤
+            </button>
 
-            <span>
-              ◉
-            </span>
+          </footer>
 
-            <small>
-              Чаты
-            </small>
+        </main>
+      )}
 
+      {/* ================= BOTTOM NAV ================= */}
+
+      {!currentChat && (
+        <nav className="bottom-nav">
+
+          <button className="bottom-nav-item active">
+            <span>◉</span>
+            <small>Чаты</small>
           </button>
 
-          <button className="nav-item">
-
-            <span>
-              ◇
-            </span>
-
-            <small>
-              Контакты
-            </small>
-
+          <button className="bottom-nav-item">
+            <span>♙</span>
+            <small>Контакты</small>
           </button>
 
-          <button className="nav-item">
-
-            <span>
-              ⚓
-            </span>
-
-            <small>
-              Denessa
-            </small>
-
-          </button>
-
-          <button
-            className="nav-item"
-            onClick={() =>
-              setMenuOpen(true)
-            }
-          >
-
-            <span>
-              ☰
-            </span>
-
-            <small>
-              Ещё
-            </small>
-
+          <button className="bottom-nav-item">
+            <span>⚙</span>
+            <small>Настройки</small>
           </button>
 
         </nav>
       )}
 
-      {/* MENU */}
-
-      {menuOpen && (
-        <div
-          className="menu-backdrop"
-          onClick={() =>
-            setMenuOpen(false)
-          }
-        >
-
-          <aside
-            className="profile-menu"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
-          >
-
-            <div className="menu-profile">
-
-              <div className="menu-avatar">
-                J
-              </div>
-
-              <div>
-
-                <strong>
-                  Ваш профиль
-                </strong>
-
-                <span>
-                  Denessa member
-                </span>
-
-              </div>
-
-            </div>
-
-            <button>
-              👤 Профиль
-            </button>
-
-            <button>
-              🔔 Уведомления
-            </button>
-
-            <button>
-              ⚙ Настройки
-            </button>
-
-            <button>
-              🌊 О Denessa
-            </button>
-
-            <button
-              className="close-menu"
-              onClick={() =>
-                setMenuOpen(false)
-              }
-            >
-              Закрыть
-            </button>
-
-          </aside>
-
-        </div>
-      )}
-
     </div>
   );
 }
-
-/* =========================
-   ERROR BOUNDARY
-========================= */
 
 class DenessaErrorBoundary extends React.Component {
   constructor(props) {
@@ -789,37 +452,21 @@ class DenessaErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error) {
-    console.error(
-      "Denessa error:",
-      error
-    );
+    console.error("Denessa error:", error);
   }
 
   render() {
     if (this.state.hasError) {
       return (
         <div className="error-screen">
-
-          <div>
-            ⚓
-          </div>
-
-          <h1>
-            Denessa
-          </h1>
-
-          <p>
-            Произошла ошибка интерфейса.
-          </p>
-
+          <div className="error-anchor">⚓</div>
+          <h1>Denessa</h1>
+          <p>Произошла ошибка интерфейса.</p>
           <button
-            onClick={() =>
-              window.location.reload()
-            }
+            onClick={() => window.location.reload()}
           >
             Перезагрузить
           </button>
-
         </div>
       );
     }
