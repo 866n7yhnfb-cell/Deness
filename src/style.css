@@ -1,43 +1,39 @@
 /* =========================================================
-   DENESSA — PREMIUM OCEAN INTERFACE
+   DENESSA — PREMIUM OCEAN UI
    Полная замена style.css
+   Совместимо с текущим main.jsx
    ========================================================= */
 
 :root {
-  --bg: #061925;
-  --bg-deep: #04131e;
-  --surface: rgba(15, 42, 57, 0.78);
-  --surface-strong: rgba(18, 51, 68, 0.92);
-  --surface-soft: rgba(255, 255, 255, 0.055);
+  --bg: #06151f;
+  --bg-deep: #041019;
+  --panel: rgba(12, 35, 48, 0.82);
+  --panel-strong: rgba(16, 43, 58, 0.94);
 
-  --border: rgba(105, 207, 232, 0.20);
-  --border-strong: rgba(105, 207, 232, 0.34);
+  --line: rgba(116, 202, 231, 0.14);
+  --line-strong: rgba(116, 202, 231, 0.25);
 
-  --text: #eefaff;
-  --text-soft: #a7c9d5;
-  --text-muted: #6f98a8;
+  --text: #f2fbff;
+  --text-soft: #a8c5d0;
+  --text-muted: #6f919f;
 
-  --cyan: #64d8ed;
-  --cyan-light: #a7eff8;
-  --cyan-dark: #287f99;
+  --accent: #66d5ee;
+  --accent-strong: #36b8da;
+  --accent-soft: rgba(102, 213, 238, 0.14);
 
-  --green: #5ce0bd;
+  --success: #55e0b0;
 
-  --message: rgba(22, 60, 77, 0.88);
-  --message-mine: linear-gradient(
-    135deg,
-    #247f99 0%,
-    #319db7 100%
-  );
+  --shadow:
+    0 20px 60px rgba(0, 0, 0, 0.28);
 
-  --shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+  --shadow-soft:
+    0 10px 30px rgba(0, 0, 0, 0.18);
 
   --radius-xl: 28px;
   --radius-lg: 22px;
   --radius-md: 17px;
   --radius-sm: 13px;
 }
-
 
 /* =========================================================
    RESET
@@ -52,32 +48,27 @@ html,
 body,
 #root {
   width: 100%;
-  min-height: 100%;
+  height: 100%;
   margin: 0;
-  padding: 0;
 }
 
 html {
-  background: var(--bg);
-  color-scheme: dark;
+  background: var(--bg-deep);
 }
 
 body {
-  min-height: 100dvh;
-  overflow: hidden;
-
   background:
     radial-gradient(
       circle at 50% -10%,
-      rgba(71, 181, 211, 0.12),
-      transparent 38%
-    ),
-    radial-gradient(
-      circle at 100% 55%,
-      rgba(33, 126, 154, 0.08),
+      rgba(54, 184, 218, 0.12),
       transparent 35%
     ),
-    var(--bg);
+    linear-gradient(
+      180deg,
+      #071a25 0%,
+      #061720 45%,
+      #04121b 100%
+    );
 
   color: var(--text);
 
@@ -92,25 +83,8 @@ body {
     Arial,
     sans-serif;
 
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  overflow: hidden;
 }
-
-button,
-textarea {
-  font: inherit;
-}
-
-button {
-  border: 0;
-}
-
-button:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid var(--cyan);
-  outline-offset: 2px;
-}
-
 
 /* =========================================================
    APP
@@ -119,104 +93,151 @@ textarea:focus-visible {
 .denessa-app {
   width: 100%;
   height: 100dvh;
-  min-height: 100dvh;
 
   display: flex;
   flex-direction: column;
 
   position: relative;
-  overflow: hidden;
 
   background:
+    radial-gradient(
+      circle at 15% 20%,
+      rgba(43, 151, 184, 0.06),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 90% 55%,
+      rgba(60, 182, 214, 0.045),
+      transparent 32%
+    ),
     linear-gradient(
       180deg,
-      rgba(7, 27, 39, 0.98) 0%,
-      rgba(5, 24, 36, 0.98) 55%,
-      rgba(4, 19, 29, 1) 100%
+      #071a25 0%,
+      #061720 50%,
+      #04121b 100%
     );
+
+  overflow: hidden;
 }
 
+/* декоративный свет */
+
+.denessa-app::before {
+  content: "";
+
+  position: absolute;
+  width: 420px;
+  height: 420px;
+
+  top: -240px;
+  left: 50%;
+
+  transform: translateX(-50%);
+
+  background: rgba(83, 208, 237, 0.08);
+
+  filter: blur(80px);
+
+  pointer-events: none;
+}
 
 /* =========================================================
    TOP BAR
    ========================================================= */
 
 .topbar {
-  width: 100%;
-  flex: 0 0 auto;
+  min-height: 94px;
 
-  min-height: 92px;
+  padding:
+    max(18px, env(safe-area-inset-top))
+    22px
+    16px;
 
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) auto 54px;
+  display: flex;
   align-items: center;
 
   gap: 14px;
 
-  padding:
-    calc(env(safe-area-inset-top) + 14px)
-    20px
-    14px;
-
-  border-bottom: 1px solid rgba(119, 202, 224, 0.13);
+  border-bottom: 1px solid var(--line);
 
   background:
     linear-gradient(
       180deg,
-      rgba(7, 28, 41, 0.97),
-      rgba(7, 28, 41, 0.82)
+      rgba(7, 26, 37, 0.97),
+      rgba(7, 24, 34, 0.88)
     );
 
   backdrop-filter: blur(22px);
   -webkit-backdrop-filter: blur(22px);
 
+  position: relative;
   z-index: 20;
 }
 
-
 /* =========================================================
-   MENU BUTTON
+   BUTTONS
    ========================================================= */
 
-.menu-button {
-  width: 52px;
-  height: 52px;
+.menu-button,
+.back-button,
+.more-button,
+.add-button,
+.send-button {
+  border: 0;
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 17px;
-
-  background:
-    linear-gradient(
-      145deg,
-      rgba(80, 190, 215, 0.18),
-      rgba(20, 67, 83, 0.72)
-    );
-
-  border: 1px solid var(--border);
-
-  color: var(--text);
-
-  font-size: 23px;
-  line-height: 1;
-
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.07),
-    0 8px 24px rgba(0,0,0,0.18);
+  font-family: inherit;
 
   cursor: pointer;
 
   transition:
     transform 0.18s ease,
-    background 0.18s ease;
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    opacity 0.18s ease;
 }
 
-.menu-button:active {
+.menu-button:active,
+.back-button:active,
+.more-button:active,
+.add-button:active,
+.send-button:active {
   transform: scale(0.94);
 }
 
+/* =========================================================
+   MENU
+   ========================================================= */
+
+.menu-button {
+  width: 54px;
+  height: 54px;
+
+  flex: 0 0 54px;
+
+  border-radius: 17px;
+
+  color: var(--text);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(37, 76, 93, 0.75),
+      rgba(12, 38, 52, 0.92)
+    );
+
+  border: 1px solid rgba(121, 208, 232, 0.18);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.07),
+    0 8px 24px rgba(0,0,0,0.16);
+
+  font-size: 25px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 /* =========================================================
    BRAND
@@ -229,9 +250,114 @@ textarea:focus-visible {
   align-items: center;
 
   gap: 12px;
+
+  flex: 1;
 }
 
 .brand-logo {
+  width: 50px;
+  height: 50px;
+
+  flex: 0 0 50px;
+
+  border-radius: 16px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: white;
+
+  font-size: 25px;
+  font-weight: 800;
+
+  background:
+    linear-gradient(
+      145deg,
+      #69d8ed,
+      #299abb
+    );
+
+  box-shadow:
+    0 8px 25px rgba(53, 187, 220, 0.25),
+    inset 0 1px 0 rgba(255,255,255,0.35);
+}
+
+.brand-name {
+  font-size: 25px;
+  line-height: 1.05;
+
+  font-weight: 800;
+
+  letter-spacing: -0.7px;
+
+  white-space: nowrap;
+}
+
+.brand-subtitle {
+  margin-top: 5px;
+
+  color: var(--text-muted);
+
+  font-size: 13px;
+
+  font-weight: 600;
+
+  letter-spacing: 0.2px;
+
+  white-space: nowrap;
+}
+
+/* =========================================================
+   ONLINE
+   ========================================================= */
+
+.online-status {
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 10px 13px;
+
+  border-radius: 16px;
+
+  background: rgba(62, 180, 150, 0.08);
+
+  border: 1px solid rgba(85, 224, 176, 0.13);
+
+  white-space: nowrap;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+
+  border-radius: 50%;
+
+  background: #63757c;
+}
+
+.status-dot.online {
+  background: var(--success);
+
+  box-shadow:
+    0 0 0 4px rgba(85, 224, 176, 0.08),
+    0 0 14px rgba(85, 224, 176, 0.7);
+}
+
+.status-text {
+  color: var(--text-soft);
+
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* =========================================================
+   PROFILE
+   ========================================================= */
+
+.profile {
   width: 48px;
   height: 48px;
 
@@ -246,303 +372,178 @@ textarea:focus-visible {
   background:
     linear-gradient(
       145deg,
-      #73dceb,
-      #318eaa
+      #8ce2ef,
+      #3c9fbd
     );
 
-  color: white;
+  color: #073040;
 
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 800;
 
   box-shadow:
-    0 10px 28px rgba(51, 172, 201, 0.25),
-    inset 0 1px 0 rgba(255,255,255,0.3);
+    0 7px 22px rgba(45, 170, 202, 0.24),
+    inset 0 1px 0 rgba(255,255,255,0.4);
 }
-
-.brand-name {
-  font-size: 21px;
-  font-weight: 800;
-
-  letter-spacing: -0.6px;
-
-  white-space: nowrap;
-}
-
-.brand-subtitle {
-  margin-top: 2px;
-
-  color: var(--text-soft);
-
-  font-size: 12px;
-  font-weight: 500;
-
-  white-space: nowrap;
-}
-
-
-/* =========================================================
-   ONLINE STATUS
-   ========================================================= */
-
-.online-status {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-
-  white-space: nowrap;
-
-  color: var(--text-soft);
-
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-
-  border-radius: 50%;
-
-  background: #6b8190;
-
-  box-shadow: 0 0 0 4px rgba(107,129,144,0.08);
-}
-
-.status-dot.online {
-  background: var(--green);
-
-  box-shadow:
-    0 0 0 4px rgba(92,224,189,0.09),
-    0 0 14px rgba(92,224,189,0.5);
-}
-
-.status-text {
-  text-transform: lowercase;
-}
-
-
-/* =========================================================
-   PROFILE
-   ========================================================= */
-
-.profile {
-  width: 46px;
-  height: 46px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 15px;
-
-  background:
-    linear-gradient(
-      145deg,
-      #9ae9f3,
-      #4caec5
-    );
-
-  color: #073246;
-
-  font-size: 19px;
-  font-weight: 800;
-
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.45),
-    0 8px 22px rgba(43,156,183,0.18);
-}
-
 
 /* =========================================================
    CHAT HEADER
    ========================================================= */
 
 .chat-header {
-  width: 100%;
-  min-height: 84px;
+  min-height: 92px;
 
-  flex: 0 0 auto;
+  padding: 14px 20px;
 
-  display: grid;
-
-  grid-template-columns: 48px 48px minmax(0, 1fr) 52px;
-
+  display: flex;
   align-items: center;
 
-  gap: 12px;
+  gap: 13px;
 
-  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
 
   background:
-    rgba(6, 29, 42, 0.88);
-
-  border-bottom: 1px solid rgba(119, 202, 224, 0.12);
+    rgba(5, 23, 33, 0.78);
 
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 
+  position: relative;
   z-index: 15;
 }
 
-
 /* =========================================================
-   BACK BUTTON
+   BACK
    ========================================================= */
 
 .back-button {
-  width: 46px;
-  height: 46px;
+  width: 50px;
+  height: 50px;
+
+  flex: 0 0 50px;
+
+  border-radius: 16px;
+
+  background:
+    rgba(20, 51, 66, 0.72);
+
+  border: 1px solid rgba(108, 201, 226, 0.17);
+
+  color: var(--text);
+
+  font-size: 31px;
+  line-height: 1;
 
   display: flex;
   align-items: center;
   justify-content: center;
-
-  border-radius: 15px;
-
-  background: var(--surface-soft);
-
-  border: 1px solid var(--border);
-
-  color: var(--text);
-
-  font-size: 30px;
-  line-height: 1;
-
-  cursor: pointer;
-
-  transition:
-    transform 0.18s ease,
-    background 0.18s ease;
 }
-
-.back-button:active {
-  transform: scale(0.94);
-}
-
 
 /* =========================================================
    CHAT ICON
    ========================================================= */
 
 .chat-icon {
-  width: 46px;
-  height: 46px;
+  width: 52px;
+  height: 52px;
+
+  flex: 0 0 52px;
+
+  border-radius: 17px;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
-  border-radius: 15px;
-
   background:
     linear-gradient(
       145deg,
-      rgba(73, 192, 215, 0.28),
-      rgba(27, 91, 109, 0.72)
+      rgba(70, 188, 218, 0.38),
+      rgba(18, 72, 91, 0.8)
     );
 
-  border: 1px solid rgba(105,207,232,0.22);
+  border: 1px solid rgba(115, 211, 235, 0.2);
 
   font-size: 25px;
 
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.08);
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    0 8px 22px rgba(0,0,0,0.16);
 }
-
-
-/* =========================================================
-   CHAT TITLE
-   ========================================================= */
 
 .chat-title-area {
   min-width: 0;
 
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  flex: 1;
 }
 
 .chat-title {
-  overflow: hidden;
+  font-size: 19px;
 
-  color: var(--text);
+  font-weight: 750;
 
-  font-size: 18px;
-  font-weight: 780;
+  letter-spacing: -0.3px;
 
-  letter-spacing: -0.35px;
-
-  text-overflow: ellipsis;
   white-space: nowrap;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chat-members {
   display: flex;
   align-items: center;
 
-  gap: 6px;
+  gap: 7px;
 
-  margin-top: 3px;
+  margin-top: 5px;
 
   color: var(--text-muted);
 
-  font-size: 12px;
-  font-weight: 550;
+  font-size: 13px;
 
-  white-space: nowrap;
+  font-weight: 600;
 }
 
 .small-dot {
-  width: 6px;
-  height: 6px;
-
-  flex: 0 0 6px;
+  width: 7px;
+  height: 7px;
 
   border-radius: 50%;
 
-  background: var(--green);
+  background: var(--success);
 
   box-shadow:
-    0 0 10px rgba(92,224,189,0.45);
+    0 0 10px rgba(85,224,176,0.5);
 }
 
-
-/* =========================================================
-   MORE BUTTON
-   ========================================================= */
-
 .more-button {
-  width: 48px;
-  height: 46px;
+  width: 50px;
+  height: 50px;
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  flex: 0 0 50px;
 
-  border-radius: 15px;
+  border-radius: 16px;
 
-  background: var(--surface-soft);
+  background:
+    rgba(22, 52, 67, 0.8);
 
-  border: 1px solid var(--border);
+  border: 1px solid rgba(108, 201, 226, 0.17);
 
   color: var(--text);
 
-  font-size: 19px;
-  letter-spacing: 2px;
+  font-size: 20px;
+  font-weight: 800;
 
-  cursor: pointer;
+  letter-spacing: 2px;
 }
 
-
 /* =========================================================
-   MESSAGES AREA
+   MESSAGES
    ========================================================= */
 
 .messages-area {
-  position: relative;
-
-  flex: 1 1 auto;
+  flex: 1;
 
   min-height: 0;
 
@@ -550,26 +551,19 @@ textarea:focus-visible {
   overflow-x: hidden;
 
   padding:
-    28px 18px
-    calc(126px + env(safe-area-inset-bottom))
-    18px;
+    24px
+    18px
+    150px;
 
   scroll-behavior: smooth;
 
-  background:
-    radial-gradient(
-      circle at 50% 25%,
-      rgba(51, 154, 179, 0.055),
-      transparent 36%
-    );
+  scrollbar-width: thin;
+  scrollbar-color:
+    rgba(101, 201, 225, 0.2)
+    transparent;
 
-  scrollbar-width: none;
+  position: relative;
 }
-
-.messages-area::-webkit-scrollbar {
-  display: none;
-}
-
 
 /* =========================================================
    WELCOME
@@ -580,92 +574,118 @@ textarea:focus-visible {
 
   display: flex;
   flex-direction: column;
+
   align-items: center;
   justify-content: center;
 
   text-align: center;
 
   padding:
-    20px
+    40px
     10px
-    90px;
+    80px;
 
-  animation: welcomeAppear 0.55s ease both;
+  position: relative;
 }
 
-@keyframes welcomeAppear {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
+/* мягкое свечение */
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.welcome::before {
+  content: "";
+
+  position: absolute;
+
+  width: 300px;
+  height: 300px;
+
+  left: 50%;
+  top: 50%;
+
+  transform: translate(-50%, -50%);
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(56, 190, 221, 0.11),
+      transparent 68%
+    );
+
+  pointer-events: none;
 }
 
 .welcome-anchor {
-  width: 64px;
-  height: 64px;
+  width: 72px;
+  height: 72px;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
-  margin-bottom: 24px;
-
-  border-radius: 22px;
+  border-radius: 23px;
 
   background:
-    radial-gradient(
-      circle,
-      rgba(104,216,237,0.14),
-      rgba(104,216,237,0.025) 65%,
-      transparent 70%
+    linear-gradient(
+      145deg,
+      rgba(57, 163, 191, 0.24),
+      rgba(17, 55, 70, 0.74)
     );
 
-  color: #9fc6d1;
+  border: 1px solid rgba(101, 208, 233, 0.2);
 
-  font-size: 35px;
+  font-size: 34px;
 
-  filter:
-    drop-shadow(
-      0 8px 18px rgba(0,0,0,0.3)
-    );
+  margin-bottom: 25px;
+
+  box-shadow:
+    0 18px 45px rgba(0,0,0,0.2),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+
+  position: relative;
+  z-index: 1;
 }
 
 .welcome h1 {
   margin: 0;
 
+  max-width: 700px;
+
   color: var(--text);
 
-  font-size: clamp(36px, 9vw, 54px);
+  font-size:
+    clamp(38px, 8vw, 66px);
 
   line-height: 0.99;
 
   font-weight: 850;
 
-  letter-spacing: -2px;
+  letter-spacing: -2.5px;
 
-  text-wrap: balance;
+  position: relative;
+  z-index: 1;
 }
 
 .welcome p {
-  max-width: 330px;
-
   margin:
-    24px auto
+    25px
+    0
     0;
+
+  max-width: 550px;
 
   color: var(--text-muted);
 
-  font-size: 16px;
-  line-height: 1.5;
+  font-size:
+    clamp(15px, 3.8vw, 19px);
 
-  font-weight: 520;
+  line-height: 1.55;
+
+  font-weight: 600;
+
+  letter-spacing: 0.1px;
+
+  position: relative;
+  z-index: 1;
 }
-
 
 /* =========================================================
    MESSAGE ROW
@@ -679,114 +699,99 @@ textarea:focus-visible {
   justify-content: flex-start;
 
   margin:
-    8px 0;
+    7px
+    0;
 }
 
 .message-row.mine {
   justify-content: flex-end;
 }
 
-
 /* =========================================================
    MESSAGE BUBBLE
    ========================================================= */
 
 .message-bubble {
-  max-width: min(78%, 420px);
+  max-width: min(78%, 560px);
 
   padding:
     11px
     14px
-    8px;
+    9px;
 
   border-radius:
     18px
     18px
     18px
-    6px;
+    7px;
 
-  background: var(--message);
+  background:
+    linear-gradient(
+      145deg,
+      rgba(18, 48, 62, 0.96),
+      rgba(11, 35, 48, 0.96)
+    );
 
-  border: 1px solid rgba(111,202,224,0.12);
+  border: 1px solid rgba(108, 201, 226, 0.13);
 
   box-shadow:
-    0 8px 24px rgba(0,0,0,0.14);
+    0 8px 24px rgba(0,0,0,0.13);
 
-  animation: messageIn 0.2s ease both;
+  position: relative;
 }
 
-.message-bubble.mine-bubble {
+.mine-bubble {
   border-radius:
     18px
     18px
-    6px
+    7px
     18px;
 
-  background: var(--message-mine);
+  background:
+    linear-gradient(
+      145deg,
+      #278eac,
+      #176c88
+    );
 
-  border-color: rgba(130,231,245,0.18);
+  border-color:
+    rgba(132, 229, 245, 0.2);
+
+  box-shadow:
+    0 9px 28px rgba(18, 117, 145, 0.2);
 }
-
-@keyframes messageIn {
-  from {
-    opacity: 0;
-    transform: translateY(5px) scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-
-/* =========================================================
-   MESSAGE AUTHOR
-   ========================================================= */
 
 .message-author {
   margin-bottom: 4px;
 
-  color: var(--cyan-light);
+  color: var(--accent);
 
   font-size: 12px;
+
   font-weight: 750;
 }
-
-
-/* =========================================================
-   MESSAGE TEXT
-   ========================================================= */
 
 .message-text {
   color: var(--text);
 
-  font-size: 15px;
-  line-height: 1.42;
+  font-size: 16px;
 
-  font-weight: 480;
+  line-height: 1.4;
 
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
+
+  word-break: break-word;
 }
-
-
-/* =========================================================
-   MESSAGE TIME
-   ========================================================= */
 
 .message-time {
   margin-top: 4px;
 
-  color: rgba(224,247,252,0.54);
+  color: rgba(214, 241, 248, 0.5);
 
   font-size: 10px;
 
-  line-height: 1;
-
   text-align: right;
 }
-
 
 /* =========================================================
    COMPOSER
@@ -801,32 +806,29 @@ textarea:focus-visible {
   bottom:
     calc(14px + env(safe-area-inset-bottom));
 
-  min-height: 68px;
+  min-height: 72px;
 
-  display: grid;
+  padding: 10px;
 
-  grid-template-columns: 48px minmax(0, 1fr) 48px;
-
+  display: flex;
   align-items: center;
 
   gap: 9px;
 
-  padding: 9px;
-
-  border-radius: 23px;
+  border-radius: 25px;
 
   background:
     linear-gradient(
       145deg,
-      rgba(19, 56, 72, 0.96),
-      rgba(11, 40, 55, 0.96)
+      rgba(19, 55, 70, 0.92),
+      rgba(9, 34, 48, 0.95)
     );
 
-  border: 1px solid rgba(83,195,222,0.28);
+  border: 1px solid rgba(101, 204, 230, 0.22);
 
   box-shadow:
-    0 18px 50px rgba(0,0,0,0.35),
-    inset 0 1px 0 rgba(255,255,255,0.055);
+    0 18px 50px rgba(0,0,0,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.06);
 
   backdrop-filter: blur(25px);
   -webkit-backdrop-filter: blur(25px);
@@ -834,232 +836,238 @@ textarea:focus-visible {
   z-index: 30;
 }
 
-
 /* =========================================================
-   ADD BUTTON
+   ADD
    ========================================================= */
 
 .add-button {
   width: 48px;
   height: 48px;
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 16px;
-
-  background:
-    linear-gradient(
-      145deg,
-      #76dceb,
-      #3b9fb9
-    );
-
-  color: #073142;
-
-  font-size: 28px;
-  font-weight: 400;
-
-  box-shadow:
-    0 8px 20px rgba(41,157,184,0.18),
-    inset 0 1px 0 rgba(255,255,255,0.35);
-
-  cursor: pointer;
-
-  transition:
-    transform 0.18s ease;
-}
-
-.add-button:active {
-  transform: scale(0.93);
-}
-
-
-/* =========================================================
-   TEXTAREA
-   ========================================================= */
-
-.composer textarea {
-  width: 100%;
-
-  min-width: 0;
-  min-height: 44px;
-  max-height: 110px;
-
-  resize: none;
-
-  padding:
-    11px
-    14px;
-
-  border: 1px solid rgba(115,205,224,0.14);
+  flex: 0 0 48px;
 
   border-radius: 15px;
 
+  background:
+    rgba(92, 204, 229, 0.13);
+
+  border: 1px solid rgba(111, 210, 233, 0.18);
+
+  color: var(--accent);
+
+  font-size: 29px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.add-button:hover {
+  background:
+    rgba(92, 204, 229, 0.2);
+}
+
+/* =========================================================
+   INPUT
+   ========================================================= */
+
+.composer textarea {
+  flex: 1;
+
+  min-width: 0;
+
+  height: 48px;
+
+  resize: none;
+
   outline: none;
 
+  border: 1px solid transparent;
+
+  border-radius: 15px;
+
+  padding:
+    13px
+    14px;
+
   background:
-    rgba(5, 25, 37, 0.78);
+    rgba(3, 21, 30, 0.72);
 
   color: var(--text);
 
+  font-family: inherit;
+
   font-size: 15px;
+
   line-height: 22px;
 
-  font-weight: 500;
-
   box-shadow:
-    inset 0 1px 8px rgba(0,0,0,0.14);
+    inset 0 1px 0 rgba(255,255,255,0.025);
 
   transition:
-    border-color 0.2s ease,
-    background 0.2s ease;
-}
-
-.composer textarea::placeholder {
-  color: #6f929f;
-  opacity: 1;
+    border-color 0.18s ease,
+    background 0.18s ease;
 }
 
 .composer textarea:focus {
-  border-color: rgba(100,216,237,0.42);
+  border-color:
+    rgba(102, 213, 238, 0.28);
 
   background:
-    rgba(6, 30, 43, 0.92);
+    rgba(3, 24, 34, 0.88);
 }
 
+.composer textarea::placeholder {
+  color: #73909b;
+
+  opacity: 1;
+}
 
 /* =========================================================
-   SEND BUTTON
+   SEND
    ========================================================= */
 
 .send-button {
   width: 48px;
   height: 48px;
 
+  flex: 0 0 48px;
+
+  border-radius: 15px;
+
   display: flex;
   align-items: center;
   justify-content: center;
 
-  border-radius: 16px;
-
   background:
     linear-gradient(
       145deg,
-      #4fb6d0,
-      #277d96
+      #39aac8,
+      #217e9b
     );
 
-  color: #eaffff;
+  color: white;
 
-  font-size: 20px;
+  font-size: 21px;
 
   box-shadow:
-    0 8px 20px rgba(35,146,174,0.22);
-
-  cursor: pointer;
-
-  transition:
-    transform 0.18s ease,
-    opacity 0.18s ease,
-    filter 0.18s ease;
-}
-
-.send-button:active:not(:disabled) {
-  transform: scale(0.92);
+    0 7px 20px rgba(34, 151, 184, 0.22),
+    inset 0 1px 0 rgba(255,255,255,0.16);
 }
 
 .send-button:disabled {
-  opacity: 0.35;
+  opacity: 0.38;
+
+  box-shadow: none;
 
   cursor: default;
-
-  filter: grayscale(0.25);
 }
 
+.send-button:not(:disabled):hover {
+  box-shadow:
+    0 9px 25px rgba(34, 151, 184, 0.35);
+}
 
 /* =========================================================
-   IPHONE / SMALL SCREENS
+   MOBILE
    ========================================================= */
 
-@media (max-width: 430px) {
+@media (max-width: 700px) {
 
   .topbar {
-    grid-template-columns: 52px minmax(0, 1fr) auto 46px;
+    min-height: 82px;
+
+    padding:
+      max(13px, env(safe-area-inset-top))
+      14px
+      12px;
 
     gap: 9px;
-
-    padding-left: 14px;
-    padding-right: 14px;
   }
 
   .menu-button {
-    width: 46px;
-    height: 46px;
+    width: 48px;
+    height: 48px;
+
+    flex-basis: 48px;
 
     border-radius: 15px;
-
-    font-size: 21px;
   }
 
   .brand-logo {
-    width: 44px;
-    height: 44px;
+    width: 45px;
+    height: 45px;
 
-    flex-basis: 44px;
+    flex-basis: 45px;
 
     border-radius: 14px;
 
-    font-size: 21px;
-  }
-
-  .brand {
-    gap: 9px;
+    font-size: 22px;
   }
 
   .brand-name {
-    font-size: 20px;
+    font-size: 21px;
   }
 
   .brand-subtitle {
     font-size: 11px;
+
+    margin-top: 3px;
   }
 
   .online-status {
-    font-size: 11px;
+    padding:
+      8px
+      10px;
+
+    border-radius: 13px;
+  }
+
+  .status-text {
+    font-size: 12px;
   }
 
   .profile {
-    width: 44px;
-    height: 44px;
+    width: 43px;
+    height: 43px;
+
+    flex-basis: 43px;
 
     border-radius: 14px;
+
+    font-size: 18px;
   }
 
   .chat-header {
-    grid-template-columns: 44px 44px minmax(0, 1fr) 48px;
+    min-height: 82px;
+
+    padding:
+      11px
+      14px;
 
     gap: 9px;
-
-    padding-left: 14px;
-    padding-right: 14px;
-  }
-
-  .back-button,
-  .chat-icon {
-    width: 44px;
-    height: 44px;
-
-    border-radius: 14px;
   }
 
   .back-button {
-    font-size: 27px;
+    width: 45px;
+    height: 45px;
+
+    flex-basis: 45px;
+
+    border-radius: 14px;
+
+    font-size: 28px;
   }
 
   .chat-icon {
-    font-size: 23px;
+    width: 45px;
+    height: 45px;
+
+    flex-basis: 45px;
+
+    border-radius: 14px;
+
+    font-size: 22px;
   }
 
   .chat-title {
@@ -1067,26 +1075,48 @@ textarea:focus-visible {
   }
 
   .chat-members {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .more-button {
-    width: 46px;
-    height: 44px;
+    width: 45px;
+    height: 45px;
+
+    flex-basis: 45px;
+
+    border-radius: 14px;
+  }
+
+  .messages-area {
+    padding:
+      18px
+      13px
+      130px;
   }
 
   .welcome {
-    padding-bottom: 105px;
+    padding:
+      20px
+      8px
+      70px;
   }
 
   .welcome-anchor {
-    margin-bottom: 20px;
+    width: 62px;
+    height: 62px;
+
+    border-radius: 20px;
+
+    font-size: 29px;
+
+    margin-bottom: 21px;
   }
 
   .welcome h1 {
-    font-size: clamp(34px, 9.5vw, 46px);
+    font-size:
+      clamp(36px, 10vw, 50px);
 
-    letter-spacing: -1.7px;
+    letter-spacing: -1.8px;
   }
 
   .welcome p {
@@ -1096,93 +1126,140 @@ textarea:focus-visible {
   }
 
   .message-bubble {
-    max-width: 82%;
+    max-width: 84%;
   }
 
   .composer {
     left: 10px;
     right: 10px;
 
-    grid-template-columns: 46px minmax(0, 1fr) 46px;
+    bottom:
+      calc(10px + env(safe-area-inset-bottom));
 
-    gap: 7px;
+    min-height: 66px;
 
     padding: 8px;
 
-    border-radius: 21px;
+    gap: 7px;
+
+    border-radius: 22px;
   }
 
   .add-button,
   .send-button {
-    width: 46px;
-    height: 46px;
+    width: 44px;
+    height: 44px;
 
-    border-radius: 15px;
+    flex-basis: 44px;
+
+    border-radius: 14px;
   }
 
   .composer textarea {
-    font-size: 14px;
+    height: 44px;
 
-    padding-left: 12px;
-    padding-right: 12px;
+    border-radius: 14px;
+
+    padding:
+      11px
+      12px;
+
+    font-size: 14px;
   }
 }
 
-
 /* =========================================================
-   VERY SMALL IPHONES
+   VERY SMALL PHONES
    ========================================================= */
 
-@media (max-width: 375px) {
+@media (max-width: 390px) {
 
-  .topbar {
-    grid-template-columns: 48px minmax(0, 1fr) 44px;
-
-    padding-left: 11px;
-    padding-right: 11px;
+  .online-status {
+    padding:
+      7px
+      8px;
   }
 
-  .menu-button {
-    width: 44px;
-    height: 44px;
+  .status-text {
+    display: none;
   }
 
-  .brand-logo {
+  .brand-subtitle {
     display: none;
   }
 
   .brand-name {
-    font-size: 19px;
+    font-size: 20px;
   }
 
-  .online-status {
-    display: none;
-  }
-
-  .profile {
-    width: 42px;
-    height: 42px;
-  }
-
-  .chat-header {
-    grid-template-columns: 42px 42px minmax(0, 1fr) 44px;
-
-    padding-left: 11px;
-    padding-right: 11px;
-  }
-
-  .back-button,
   .chat-icon {
-    width: 42px;
-    height: 42px;
+    display: none;
   }
 
   .chat-title {
     font-size: 16px;
   }
 
-  .chat-members {
-    font-size: 10px;
+  .welcome h1 {
+    font-size: 35px;
+
+    letter-spacing: -1.4px;
+  }
+
+  .welcome p {
+    font-size: 14px;
+  }
+
+  .composer {
+    left: 8px;
+    right: 8px;
+  }
+}
+
+/* =========================================================
+   LANDSCAPE
+   ========================================================= */
+
+@media (orientation: landscape) and (max-height: 600px) {
+
+  .topbar {
+    min-height: 68px;
+
+    padding:
+      8px
+      14px;
+  }
+
+  .brand-logo {
+    width: 40px;
+    height: 40px;
+
+    flex-basis: 40px;
+  }
+
+  .profile {
+    width: 40px;
+    height: 40px;
+
+    flex-basis: 40px;
+  }
+
+  .chat-header {
+    min-height: 68px;
+  }
+
+  .welcome {
+    padding-top: 20px;
+    padding-bottom: 80px;
+  }
+
+  .welcome-anchor {
+    width: 48px;
+    height: 48px;
+
+    font-size: 23px;
+
+    margin-bottom: 12px;
   }
 
   .welcome h1 {
@@ -1190,62 +1267,65 @@ textarea:focus-visible {
   }
 
   .welcome p {
-    font-size: 14px;
-  }
-}
-
-
-/* =========================================================
-   LANDSCAPE
-   ========================================================= */
-
-@media (orientation: landscape) and (max-height: 500px) {
-
-  .topbar {
-    min-height: 66px;
-
-    padding-top:
-      calc(env(safe-area-inset-top) + 7px);
-
-    padding-bottom: 7px;
-  }
-
-  .chat-header {
-    min-height: 64px;
-
-    padding-top: 7px;
-    padding-bottom: 7px;
-  }
-
-  .brand-logo,
-  .profile,
-  .menu-button {
-    width: 40px;
-    height: 40px;
-  }
-
-  .welcome {
-    padding-top: 20px;
-    padding-bottom: 100px;
-  }
-
-  .welcome-anchor {
-    display: none;
-  }
-
-  .welcome h1 {
-    font-size: 30px;
-  }
-
-  .welcome p {
-    margin-top: 10px;
+    margin-top: 12px;
   }
 
   .composer {
     bottom: 8px;
+
+    min-height: 60px;
+  }
+
+  .add-button,
+  .send-button,
+  .composer textarea {
+    height: 42px;
   }
 }
 
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+.messages-area::-webkit-scrollbar {
+  width: 5px;
+}
+
+.messages-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messages-area::-webkit-scrollbar-thumb {
+  background:
+    rgba(91, 187, 215, 0.2);
+
+  border-radius: 20px;
+}
+
+/* =========================================================
+   SELECTION
+   ========================================================= */
+
+::selection {
+  background:
+    rgba(82, 203, 231, 0.25);
+
+  color: white;
+}
+
+/* =========================================================
+   IOS / SAFARI
+   ========================================================= */
+
+button,
+textarea {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+textarea {
+  -webkit-overflow-scrolling: touch;
+}
 
 /* =========================================================
    REDUCED MOTION
@@ -1257,8 +1337,8 @@ textarea:focus-visible {
   *::before,
   *::after {
     scroll-behavior: auto !important;
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
+
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }
