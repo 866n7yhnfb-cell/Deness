@@ -1,32 +1,15 @@
-{
-  "$schema": "./node_modules/wrangler/config-schema.json",
+name = "denessa"
+main = "worker.js"
+compatibility_date = "2026-08-25"
 
-  "name": "denessa",
+[observability]
+enabled = true
 
-  "main": "worker.js",
+[durable_objects]
+bindings = [
+  { name = "DENESSA_ROOM", class_name = "DenessaRoom" }
+]
 
-  "compatibility_date": "2026-08-25",
-
-  "observability": {
-    "enabled": true
-  },
-
-  "durable_objects": {
-    "bindings": [
-      {
-        "name": "DENESSA_ROOM",
-        "class_name": "DenessaRoom",
-        "script_name": "denessa"
-      }
-    ]
-  },
-
-  "migrations": [
-    {
-      "tag": "v1",
-      "new_sqlite_classes": [
-        "DenessaRoom"
-      ]
-    }
-  ]
-}
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["DenessaRoom"]
