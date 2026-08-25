@@ -8,7 +8,20 @@ import React, {
 import { createRoot } from "react-dom/client";
 import "./style.css";
 
+
+// ======================================================
+// DENESSA CONFIG
+// ======================================================
+
+const WORKER_URL =
+  "https://denessa-messenger.fdhtvsn8yh.workers.dev";
+
 const ROOM = "denessa-lounge";
+
+
+// ======================================================
+// CHATS
+// ======================================================
 
 const chats = [
   {
@@ -21,6 +34,7 @@ const chats = [
     theme: "ocean",
     online: true,
   },
+
   {
     id: "captains",
     name: "Капитаны",
@@ -31,6 +45,7 @@ const chats = [
     theme: "captain",
     online: true,
   },
+
   {
     id: "ideas",
     name: "Морские идеи",
@@ -43,17 +58,15 @@ const chats = [
   },
 ];
 
-const initialMessages = [
-  {
-    id: "welcome-denessa",
-    author: "Denessa",
-    text: "Добро пожаловать в Denessa 🌊",
-    time: "18:42",
-    mine: false,
-  },
-];
 
-function Avatar({ chat, size = "normal" }) {
+// ======================================================
+// AVATAR
+// ======================================================
+
+function Avatar({
+  chat,
+  size = "normal",
+}) {
   return (
     <div
       className={`chat-avatar ${chat.theme} avatar-${size}`}
@@ -63,529 +76,613 @@ function Avatar({ chat, size = "normal" }) {
   );
 }
 
+
+// ======================================================
+// CLIENT ID
+// ======================================================
+
+function getClientId() {
+  let id =
+    localStorage.getItem(
+      "denessa_client_id"
+    );
+
+  if (!id) {
+    id =
+      crypto.randomUUID();
+
+    localStorage.setItem(
+      "denessa_client_id",
+      id
+    );
+  }
+
+  return id;
+}
+
+
+// ======================================================
+// USERNAME
+// ======================================================
+
+function getUsername() {
+  let username =
+    localStorage.getItem(
+      "denessa_username"
+    );
+
+  if (!username) {
+    username = "Участник";
+
+    localStorage.setItem(
+      "denessa_username",
+      username
+    );
+  }
+
+  return username;
+}
+
+
+// ======================================================
+// WEBSOCKET URL
+// ======================================================
+
+function createWebSocketUrl() {
+  const url =
+    new URL(
+      "/ws",
+      WORKER_URL
+    );
+
+  url.searchParams.set(
+    "room",
+    ROOM
+  );
+
+  url.searchParams.set(
+    "username",
+    getUsername()
+  );
+
+  url.searchParams.set(
+    "client",
+    getClientId()
+  );
+
+  url.protocol =
+    url.protocol === "https:"
+      ? "wss:"
+      : "ws:";
+
+  return url.toString();
+}
+
+
+// ======================================================
+// MAIN APP
+// ======================================================
+
 function Denessa() {
-  const [activeChat, setActiveChat] = useState(null);
 
-  const [search, setSearch] = useState("");
+  const [activeChat, setActiveChat] =
+    useState("lounge");
 
-  const [text, setText] = useState("");
+  const [search, setSearch] =
+    useState("");
+
+  const [text, setText] =
+    useState("");
 
   const [messages, setMessages] =
-    useState(initialMessages);
+    useState([]);
 
-  const [connected, setConnected] =
-    useState(false);
-
-  const [onlineCount, setOnlineCount] =
+  const [online, setOnline] =
     useState(0);
 
-  const [connecting, setConnecting] =
+  const [connected, setConnected] =
     useState(false);
 
   const socketRef =
     useRef(null);
 
-  const reconnectTimerRef =
+  const reconnectTimer =
     useRef(null);
 
   const bottomRef =
     useRef(null);
 
-  const clientIdRef =
-    useRef(
-      `${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2)}`
-    );
 
-  // ==================================================
+  // ====================================================
   // FILTER CHATS
-  // ==================================================
+  // ====================================================
 
-  const filteredChats = useMemo(() => {
-    const value =
-      search.trim().toLowerCase();
+  const filteredChats =
+    useMemo(() => {
 
-    if (!value) {
-      return chats;
-    }
+      const value =
+        search
+          .trim()
+          .toLowerCase();
 
-    return chats.filter(
-      (chat) =>
-        chat.name
-          .toLowerCase()
-          .includes(value) ||
-        chat.subtitle
-          .toLowerCase()
-          .includes(value) ||
-        chat.preview
-          .toLowerCase()
-          .includes(value)
-    );
-  }, [search]);
+      if (!value) {
+        return chats;
+      }
+
+      return chats.filter(
+        (chat) =>
+          chat.name
+            .toLowerCase()
+            .includes(value) ||
+
+          chat.subtitle
+            .toLowerCase()
+            .includes(value) ||
+
+          chat.preview
+            .toLowerCase()
+            .includes(value)
+      );
+
+    }, [search]);
+
+
+  // ====================================================
+  // CURRENT CHAT
+  // ====================================================
 
   const currentChat =
     chats.find(
-      (chat) => chat.id === activeChat
-    ) || null;
+      (chat) =>
+        chat.id === activeChat
+    ) || chats[0];
 
-  // ==================================================
-  // WEBSOCKET URL
-  // ==================================================
 
-  const getWebSocketUrl = () => {
-    const protocol =
-      window.location.protocol === "https:"
-        ? "wss:"
-        : "ws:";
+  // ====================================================
+  // CONNECT WEBSOCKET
+  // ====================================================
 
-    return (
-      `${protocol}//${window.location.host}` +
-      `/ws?room=${encodeURIComponent(ROOM)}` +
-      `&username=${encodeURIComponent("Вы")}` +
-      `&client=${encodeURIComponent(clientIdRef.current)}`
-    );
-  };
+  const connectWebSocket =
+    () => {
 
-  // ==================================================
-  // CONNECT
-  // ==================================================
+      // Не создаём несколько соединений
 
-  const connectWebSocket = () => {
-    if (
-      socketRef.current &&
-      (
-        socketRef.current.readyState ===
-          WebSocket.OPEN ||
-        socketRef.current.readyState ===
-          WebSocket.CONNECTING
-      )
-    ) {
-      return;
-    }
+      if (
+        socketRef.current &&
+        (
+          socketRef.current.readyState ===
+            WebSocket.OPEN ||
 
-    setConnecting(true);
+          socketRef.current.readyState ===
+            WebSocket.CONNECTING
+        )
+      ) {
+        return;
+      }
 
-    try {
+
+      const wsUrl =
+        createWebSocketUrl();
+
+      console.log(
+        "Denessa connecting:",
+        wsUrl
+      );
+
+
       const socket =
         new WebSocket(
-          getWebSocketUrl()
+          wsUrl
         );
 
-      socketRef.current = socket;
 
-      // ------------------------------------------------
+      socketRef.current =
+        socket;
+
+
+      // ==================================================
       // OPEN
-      // ------------------------------------------------
+      // ==================================================
 
-      socket.onopen = () => {
-        console.log(
-          "Denessa WebSocket connected"
-        );
+      socket.onopen =
+        () => {
 
-        setConnected(true);
-        setConnecting(false);
-
-        if (
-          reconnectTimerRef.current
-        ) {
-          clearTimeout(
-            reconnectTimerRef.current
+          console.log(
+            "Denessa WebSocket connected"
           );
 
-          reconnectTimerRef.current =
-            null;
-        }
-      };
+          setConnected(true);
 
-      // ------------------------------------------------
+        };
+
+
+      // ==================================================
       // MESSAGE
-      // ------------------------------------------------
+      // ==================================================
 
-      socket.onmessage = (event) => {
-        try {
-          const data =
-            JSON.parse(event.data);
+      socket.onmessage =
+        (event) => {
 
-          // --------------------------------------------
-          // HISTORY
-          // --------------------------------------------
+          try {
 
-          if (
-            data.type === "history"
-          ) {
+            const data =
+              JSON.parse(
+                event.data
+              );
+
+
+            console.log(
+              "Denessa received:",
+              data
+            );
+
+
+            // ------------------------------------------
+            // HISTORY
+            // ------------------------------------------
+
             if (
-              Array.isArray(
-                data.messages
-              )
+              data.type ===
+              "history"
             ) {
+
+              const history =
+                Array.isArray(
+                  data.messages
+                )
+                  ? data.messages
+                  : [];
+
+
+              const clientId =
+                getClientId();
+
+
               setMessages(
-                data.messages.map(
+                history.map(
                   (message) => ({
                     ...message,
-                    mine: false,
+
+                    mine:
+                      message.clientId ===
+                      clientId,
                   })
                 )
               );
-            }
 
-            return;
-          }
 
-          // --------------------------------------------
-          // NEW MESSAGE
-          // --------------------------------------------
-
-          if (
-            data.type === "message" &&
-            data.message
-          ) {
-            const incoming =
-              data.message;
-
-            const normalized = {
-              id:
-                incoming.id ||
-                `${Date.now()}-${Math.random()}`,
-
-              author:
-                incoming.author ||
-                "Участник",
-
-              text:
-                incoming.text ||
-                "",
-
-              time:
-                incoming.time ||
-                new Date().toLocaleTimeString(
-                  [],
-                  {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }
-                ),
-
-              /*
-               * Worker рассылает сообщение
-               * всем пользователям.
-               *
-               * Если это наше собственное
-               * сообщение — отмечаем его
-               * как mine.
-               */
-              mine:
-                incoming.clientId ===
-                clientIdRef.current,
-            };
-
-            if (
-              !normalized.text
-            ) {
               return;
             }
 
-            setMessages(
-              (oldMessages) => {
-                const exists =
-                  oldMessages.some(
-                    (item) =>
-                      item.id ===
-                      normalized.id
-                  );
 
-                if (exists) {
-                  return oldMessages;
-                }
+            // ------------------------------------------
+            // NEW MESSAGE
+            // ------------------------------------------
 
-                return [
-                  ...oldMessages,
-                  normalized,
-                ];
+            if (
+              data.type ===
+              "message"
+            ) {
+
+              const message =
+                data.message;
+
+
+              if (!message) {
+                return;
               }
-            );
 
-            return;
-          }
 
-          // --------------------------------------------
-          // PRESENCE
-          // --------------------------------------------
+              const clientId =
+                getClientId();
 
-          if (
-            data.type === "presence"
+
+              setMessages(
+                (old) => {
+
+                  // Не добавляем дубликат
+
+                  if (
+                    old.some(
+                      (item) =>
+                        item.id ===
+                        message.id
+                    )
+                  ) {
+                    return old;
+                  }
+
+
+                  return [
+                    ...old,
+
+                    {
+                      ...message,
+
+                      mine:
+                        message.clientId ===
+                        clientId,
+                    },
+                  ];
+                }
+              );
+
+
+              return;
+            }
+
+
+            // ------------------------------------------
+            // ONLINE
+            // ------------------------------------------
+
+            if (
+              data.type ===
+              "presence"
+            ) {
+
+              const count =
+                Number(
+                  data.online
+                ) || 0;
+
+
+              console.log(
+                "Denessa online:",
+                count
+              );
+
+
+              setOnline(
+                count
+              );
+
+
+              return;
+            }
+
+
+            // ------------------------------------------
+            // ERROR
+            // ------------------------------------------
+
+            if (
+              data.type ===
+              "error"
+            ) {
+
+              console.error(
+                "Denessa server error:",
+                data.message
+              );
+
+            }
+
+          } catch (
+            error
           ) {
-            setOnlineCount(
-              Number(data.online) || 0
-            );
 
-            return;
-          }
-
-          // --------------------------------------------
-          // ERROR
-          // --------------------------------------------
-
-          if (
-            data.type === "error"
-          ) {
             console.error(
-              "Denessa server error:",
-              data.message
+              "Denessa message parse error:",
+              error
             );
 
-            return;
           }
-        } catch (error) {
+        };
+
+
+      // ==================================================
+      // CLOSE
+      // ==================================================
+
+      socket.onclose =
+        () => {
+
+          console.log(
+            "Denessa WebSocket disconnected"
+          );
+
+          setConnected(false);
+
+          setOnline(0);
+
+
+          socketRef.current =
+            null;
+
+
+          // Автоматическое переподключение
+
+          clearTimeout(
+            reconnectTimer.current
+          );
+
+
+          reconnectTimer.current =
+            setTimeout(
+              () => {
+                connectWebSocket();
+              },
+              2000
+            );
+
+        };
+
+
+      // ==================================================
+      // ERROR
+      // ==================================================
+
+      socket.onerror =
+        (error) => {
+
           console.error(
-            "Denessa message parse error:",
+            "Denessa WebSocket error:",
             error
           );
-        }
-      };
 
-      // ------------------------------------------------
-      // CLOSE
-      // ------------------------------------------------
+        };
+    };
 
-      socket.onclose = () => {
-        console.log(
-          "Denessa WebSocket disconnected"
-        );
 
-        setConnected(false);
-        setConnecting(false);
-
-        socketRef.current = null;
-
-        if (
-          reconnectTimerRef.current
-        ) {
-          clearTimeout(
-            reconnectTimerRef.current
-          );
-        }
-
-        reconnectTimerRef.current =
-          setTimeout(() => {
-            connectWebSocket();
-          }, 2500);
-      };
-
-      // ------------------------------------------------
-      // ERROR
-      // ------------------------------------------------
-
-      socket.onerror = (error) => {
-        console.error(
-          "Denessa WebSocket error:",
-          error
-        );
-
-        setConnected(false);
-        setConnecting(false);
-      };
-    } catch (error) {
-      console.error(
-        "Denessa connection error:",
-        error
-      );
-
-      setConnected(false);
-      setConnecting(false);
-
-      reconnectTimerRef.current =
-        setTimeout(() => {
-          connectWebSocket();
-        }, 2500);
-    }
-  };
-
-  // ==================================================
-  // INITIAL CONNECTION
-  // ==================================================
+  // ====================================================
+  // CONNECT ON START
+  // ====================================================
 
   useEffect(() => {
+
     connectWebSocket();
 
+
     return () => {
+
+      clearTimeout(
+        reconnectTimer.current
+      );
+
+
       if (
-        reconnectTimerRef.current
+        socketRef.current
       ) {
-        clearTimeout(
-          reconnectTimerRef.current
-        );
+
+        socketRef.current.close();
+
+        socketRef.current =
+          null;
       }
 
-      try {
-        socketRef.current?.close();
-      } catch {}
-
-      socketRef.current =
-        null;
     };
+
   }, []);
 
-  // ==================================================
-  // SCROLL TO BOTTOM
-  // ==================================================
+
+  // ====================================================
+  // SCROLL
+  // ====================================================
 
   useEffect(() => {
+
     setTimeout(() => {
+
       bottomRef.current?.scrollIntoView({
         behavior: "smooth",
       });
+
     }, 50);
+
   }, [messages]);
 
-  // ==================================================
+
+  // ====================================================
   // SEND MESSAGE
-  // ==================================================
+  // ====================================================
 
-  const sendMessage = () => {
-    const value =
-      text.trim();
+  const sendMessage =
+    () => {
 
-    if (!value) {
-      return;
-    }
+      const value =
+        text.trim();
 
-    const socket =
-      socketRef.current;
 
-    // ------------------------------------------------
-    // If connected — send to server
-    // ------------------------------------------------
-
-    if (
-      socket &&
-      socket.readyState ===
-        WebSocket.OPEN
-    ) {
-      const localId =
-        `${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2)}`;
-
-      const time =
-        new Date().toLocaleTimeString(
-          [],
-          {
-            hour: "2-digit",
-            minute: "2-digit",
-          }
-        );
-
-      const payload = {
-        type: "message",
-
-        room: ROOM,
-
-        id: localId,
-
-        clientId:
-          clientIdRef.current,
-
-        author: "Вы",
-
-        text: value,
-
-        time,
-      };
-
-      try {
-        socket.send(
-          JSON.stringify(payload)
-        );
-
-        /*
-         * Добавляем сообщение локально
-         * сразу, чтобы интерфейс был
-         * моментальным.
-         */
-        setMessages(
-          (oldMessages) => [
-            ...oldMessages,
-            {
-              id: localId,
-              author: "Вы",
-              text: value,
-              time,
-              mine: true,
-            },
-          ]
-        );
-
-        setText("");
-      } catch (error) {
-        console.error(
-          "Denessa send error:",
-          error
-        );
+      if (!value) {
+        return;
       }
 
-      return;
-    }
 
-    // ------------------------------------------------
-    // Offline fallback
-    // ------------------------------------------------
+      const socket =
+        socketRef.current;
 
-    const offlineMessage = {
-      id:
-        `${Date.now()}-offline`,
-      author: "Вы",
-      text: value,
-      time:
-        new Date().toLocaleTimeString(
-          [],
-          {
-            hour: "2-digit",
-            minute: "2-digit",
-          }
-        ),
-      mine: true,
+
+      if (
+        !socket ||
+        socket.readyState !==
+          WebSocket.OPEN
+      ) {
+
+        console.warn(
+          "Denessa: WebSocket not connected"
+        );
+
+        return;
+      }
+
+
+      const message = {
+
+        type:
+          "message",
+
+        id:
+          `${Date.now()}-${crypto.randomUUID()}`,
+
+        clientId:
+          getClientId(),
+
+        author:
+          getUsername(),
+
+        text:
+          value,
+
+        time:
+          new Date().toLocaleTimeString(
+            "ru-RU",
+            {
+              hour: "2-digit",
+              minute: "2-digit",
+            }
+          ),
+      };
+
+
+      console.log(
+        "Denessa sending:",
+        message
+      );
+
+
+      socket.send(
+        JSON.stringify(
+          message
+        )
+      );
+
+
+      setText("");
     };
 
-    setMessages(
-      (oldMessages) => [
-        ...oldMessages,
-        offlineMessage,
-      ]
-    );
 
-    setText("");
-
-    console.log(
-      "Denessa: сообщение сохранено локально. Сервер пока недоступен."
-    );
-  };
-
-  // ==================================================
+  // ====================================================
   // ENTER
-  // ==================================================
+  // ====================================================
 
-  const handleKeyDown = (
-    event
-  ) => {
-    if (
-      event.key === "Enter" &&
-      !event.shiftKey
-    ) {
-      event.preventDefault();
+  const handleKeyDown =
+    (event) => {
 
-      sendMessage();
-    }
-  };
+      if (
+        event.key ===
+          "Enter" &&
+        !event.shiftKey
+      ) {
 
-  // ==================================================
-  // UI
-  // ==================================================
+        event.preventDefault();
+
+        sendMessage();
+      }
+
+    };
+
+
+  // ====================================================
+  // RENDER
+  // ====================================================
 
   return (
     <div className="denessa-shell">
 
-      {/* ================= HEADER ================= */}
+      {/* ============================================
+          HEADER
+      ============================================ */}
 
       <header className="app-header">
 
@@ -598,17 +695,20 @@ function Denessa() {
           <span></span>
         </button>
 
+
         <div className="brand">
 
           <div className="brand-mark">
             D
           </div>
 
+
           <div className="brand-copy">
 
             <div className="brand-name">
               Denessa
             </div>
+
 
             <div className="brand-subtitle">
               Морской мессенджер
@@ -618,37 +718,46 @@ function Denessa() {
 
         </div>
 
-        <div className="header-online">
 
-          <span
-            className={
-              connected
-                ? "online-pulse"
-                : "online-pulse offline"
-            }
-          />
+        {/* ==========================================
+            ONLINE
+        ========================================== */}
+
+        <div
+          className={`header-online ${
+            connected
+              ? "is-connected"
+              : "is-disconnected"
+          }`}
+        >
+
+          <span className="online-pulse"></span>
+
 
           <span>
+
             {connected
-              ? "Онлайн"
-              : connecting
-              ? "Подключение..."
-              : "Офлайн"}
+              ? `Онлайн ${online}`
+              : "Подключение..."}
+
           </span>
 
         </div>
 
-        <button
-          className="profile-avatar"
-        >
+
+        <button className="profile-avatar">
           J
         </button>
 
       </header>
 
-      {/* ================= HOME ================= */}
+
+      {/* ============================================
+          HOME
+      ============================================ */}
 
       {!currentChat && (
+
         <main className="home-screen">
 
           <section className="welcome-section">
@@ -659,25 +768,27 @@ function Denessa() {
                 ВАШИ ЧАТЫ
               </div>
 
+
               <h1 className="page-title">
                 Причал
               </h1>
 
             </div>
 
-            <button
-              className="new-chat-button"
-            >
+
+            <button className="new-chat-button">
               +
             </button>
 
           </section>
+
 
           <div className="search-box">
 
             <span className="search-icon">
               ⌕
             </span>
+
 
             <input
               value={search}
@@ -691,10 +802,12 @@ function Denessa() {
 
           </div>
 
+
           <section className="chat-list">
 
             {filteredChats.map(
               (chat, index) => (
+
                 <button
                   key={chat.id}
                   className={`chat-card ${
@@ -713,6 +826,7 @@ function Denessa() {
                     chat={chat}
                   />
 
+
                   <div className="chat-card-content">
 
                     <div className="chat-card-top">
@@ -721,17 +835,20 @@ function Denessa() {
                         {chat.name}
                       </strong>
 
+
                       <span>
                         {chat.time}
                       </span>
 
                     </div>
 
+
                     <div className="chat-card-bottom">
 
                       <span>
                         {chat.preview}
                       </span>
+
 
                       {chat.online && (
                         <i className="tiny-online"></i>
@@ -742,10 +859,12 @@ function Denessa() {
                   </div>
 
                 </button>
+
               )
             )}
 
           </section>
+
 
           <div className="version-card">
 
@@ -753,17 +872,20 @@ function Denessa() {
               ⚓
             </div>
 
+
             <div>
 
               <strong>
                 Denessa 1.3
               </strong>
 
+
               <span>
                 Плывём в будущее
               </span>
 
             </div>
+
 
             <span className="version-arrow">
               ›
@@ -774,10 +896,18 @@ function Denessa() {
         </main>
       )}
 
-      {/* ================= CHAT ================= */}
+
+      {/* ============================================
+          CHAT
+      ============================================ */}
 
       {currentChat && (
+
         <main className="chat-screen">
+
+          {/* ==========================================
+              CONVERSATION HEADER
+          ========================================== */}
 
           <header className="conversation-header">
 
@@ -790,10 +920,12 @@ function Denessa() {
               ‹
             </button>
 
+
             <Avatar
               chat={currentChat}
               size="small"
             />
+
 
             <div className="conversation-info">
 
@@ -801,27 +933,16 @@ function Denessa() {
                 {currentChat.name}
               </strong>
 
+
               <span>
 
-                <i
-                  className={
-                    connected
-                      ? "tiny-online"
-                      : "tiny-online offline-dot"
-                  }
-                />
+                <i className="tiny-online"></i>
 
                 {connected
-                  ? `${Math.max(
-                      onlineCount,
-                      1
-                    )} ${
-                      Math.max(
-                        onlineCount,
-                        1
-                      ) === 1
-                        ? "участник"
-                        : "участников"
+                  ? `${online} участник${
+                      online === 1
+                        ? ""
+                        : "а"
                     } онлайн`
                   : "Подключение..."}
 
@@ -829,13 +950,17 @@ function Denessa() {
 
             </div>
 
-            <button
-              className="conversation-action"
-            >
+
+            <button className="conversation-action">
               ⋯
             </button>
 
           </header>
+
+
+          {/* ==========================================
+              MESSAGES
+          ========================================== */}
 
           <section className="messages">
 
@@ -845,15 +970,18 @@ function Denessa() {
               </span>
             </div>
 
+
             <div className="conversation-welcome">
 
               <div className="large-anchor">
                 ⚓
               </div>
 
+
               <div className="channel-name">
                 DENESSA LOUNGE
               </div>
+
 
               <h2>
                 Добро пожаловать
@@ -861,17 +989,19 @@ function Denessa() {
                 в Denessa
               </h2>
 
+
               <p>
-                Ваше пространство для
-                общения
+                Ваше пространство для общения
                 <br />
                 в океане идей.
               </p>
 
             </div>
 
+
             {messages.map(
               (message) => (
+
                 <div
                   key={message.id}
                   className={`message-line ${
@@ -882,10 +1012,13 @@ function Denessa() {
                 >
 
                   {!message.mine && (
+
                     <div className="message-mini-avatar">
                       ⚓
                     </div>
+
                   )}
+
 
                   <div
                     className={`message ${
@@ -896,18 +1029,23 @@ function Denessa() {
                   >
 
                     {!message.mine && (
+
                       <strong>
                         {message.author}
                       </strong>
+
                     )}
+
 
                     <span className="message-content">
                       {message.text}
                     </span>
 
+
                     <small>
 
                       {message.time}
+
 
                       {message.mine && (
                         <b>
@@ -920,8 +1058,10 @@ function Denessa() {
                   </div>
 
                 </div>
+
               )
             )}
+
 
             <div
               ref={bottomRef}
@@ -929,14 +1069,17 @@ function Denessa() {
 
           </section>
 
+
+          {/* ==========================================
+              COMPOSER
+          ========================================== */}
+
           <footer className="composer">
 
-            <button
-              className="add-button"
-              type="button"
-            >
+            <button className="add-button">
               +
             </button>
+
 
             <textarea
               value={text}
@@ -948,15 +1091,25 @@ function Denessa() {
               onKeyDown={
                 handleKeyDown
               }
-              placeholder="Напишите сообщение..."
+              placeholder={
+                connected
+                  ? "Напишите сообщение..."
+                  : "Подключение..."
+              }
               rows={1}
+              disabled={!connected}
             />
+
 
             <button
               className="send-button"
-              disabled={!text.trim()}
-              onClick={sendMessage}
-              type="button"
+              disabled={
+                !text.trim() ||
+                !connected
+              }
+              onClick={
+                sendMessage
+              }
             >
               ➤
             </button>
@@ -966,36 +1119,51 @@ function Denessa() {
         </main>
       )}
 
-      {/* ================= BOTTOM NAV ================= */}
+
+      {/* ============================================
+          BOTTOM NAV
+      ============================================ */}
 
       {!currentChat && (
+
         <nav className="bottom-nav">
 
-          <button
-            className="bottom-nav-item active"
-          >
-            <span>◉</span>
+          <button className="bottom-nav-item active">
+
+            <span>
+              ◉
+            </span>
+
             <small>
               Чаты
             </small>
+
           </button>
 
-          <button
-            className="bottom-nav-item"
-          >
-            <span>♙</span>
+
+          <button className="bottom-nav-item">
+
+            <span>
+              ♙
+            </span>
+
             <small>
               Контакты
             </small>
+
           </button>
 
-          <button
-            className="bottom-nav-item"
-          >
-            <span>⚙</span>
+
+          <button className="bottom-nav-item">
+
+            <span>
+              ⚙
+            </span>
+
             <small>
               Настройки
             </small>
+
           </button>
 
         </nav>
@@ -1004,6 +1172,7 @@ function Denessa() {
     </div>
   );
 }
+
 
 // ======================================================
 // ERROR BOUNDARY
@@ -1020,11 +1189,13 @@ class DenessaErrorBoundary
     };
   }
 
+
   static getDerivedStateFromError() {
     return {
       hasError: true,
     };
   }
+
 
   componentDidCatch(error) {
     console.error(
@@ -1033,10 +1204,13 @@ class DenessaErrorBoundary
     );
   }
 
+
   render() {
+
     if (
       this.state.hasError
     ) {
+
       return (
         <div className="error-screen">
 
@@ -1044,13 +1218,16 @@ class DenessaErrorBoundary
             ⚓
           </div>
 
+
           <h1>
             Denessa
           </h1>
 
+
           <p>
             Произошла ошибка интерфейса.
           </p>
+
 
           <button
             onClick={() =>
@@ -1064,9 +1241,11 @@ class DenessaErrorBoundary
       );
     }
 
+
     return this.props.children;
   }
 }
+
 
 // ======================================================
 // START
@@ -1075,7 +1254,11 @@ class DenessaErrorBoundary
 createRoot(
   document.getElementById("root")
 ).render(
+
   <DenessaErrorBoundary>
+
     <Denessa />
+
   </DenessaErrorBoundary>
+  
 );
